@@ -1,0 +1,23 @@
+﻿Build started 27.06.2019 19:22:33.
+     1>Project "C:\rgmapvideo\VD_PluginSDK\src\SampleInputDriver\SampleInputDriver.vcxproj" on node 2 (Rebuild target(s)).
+     1>ClCompile:
+         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\CL.exe /c /I..\..\include /Iinclude /Ires /Zi /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _DEBUG /D _WINDOWS /D _USRDLL /D SAMPLEINPUTDRIVER_EXPORTS /D _CRT_SECURE_NO_WARNINGS /D _WINDLL /D _MBCS /GF /Gm /EHsc /RTC1 /MTd /GS- /fp:precise /Zc:wchar_t /Zc:forScope /GR- /Fo"..\..\obj\Debug\SampleInputDriver\\" /Fd"..\..\obj\Debug\SampleInputDriver\vc120.pdb" /Gd /TP /analyze- /errorReport:prompt source\avi.cpp source\main.cpp source\mocrap.cpp
+         mocrap.cpp
+         main.cpp
+         avi.cpp
+         Generating Code...
+       ResourceCompile:
+         C:\Program Files (x86)\Windows Kits\8.1\bin\x86\rc.exe /l"0x0409" /nologo /fo"..\..\obj\Debug\SampleInputDriver\SampleInputDriver.res" res\SampleInputDriver.rc 
+       Link:
+         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"..\..\out\Debug\SampleInputDriver.dll" /INCREMENTAL /NOLOGO vfw32.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /DEF:"SampleInputDriver.def" /MANIFEST:NO /DEBUG /PDB:"..\..\out\Debug\SampleInputDriver.pdb" /SUBSYSTEM:WINDOWS /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"..\..\out\Debug\SampleInputDriver.lib" /MACHINE:X86 /SAFESEH /DLL ..\..\obj\Debug\SampleInputDriver\SampleInputDriver.res
+         ..\..\obj\Debug\SampleInputDriver\avi.obj
+         ..\..\obj\Debug\SampleInputDriver\main.obj
+         ..\..\obj\Debug\SampleInputDriver\mocrap.obj
+         C:\rgmapvideo\VD_PluginSDK\out\Debug\VDXFrame.lib
+            Creating library ..\..\out\Debug\SampleInputDriver.lib and object ..\..\out\Debug\SampleInputDriver.exp
+         SampleInputDriver.vcxproj -> C:\rgmapvideo\VD_PluginSDK\src\SampleInputDriver\..\..\out\Debug\SampleInputDriver.dll
+     1>Done Building Project "C:\rgmapvideo\VD_PluginSDK\src\SampleInputDriver\SampleInputDriver.vcxproj" (Rebuild target(s)).
+
+Build succeeded.
+
+Time Elapsed 00:00:02.23

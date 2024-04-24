@@ -1,0 +1,231 @@
+// Microsoft Visual C++ generated resource script.
+//
+#include "resource.h"
+
+#define APSTUDIO_READONLY_SYMBOLS
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 2 resource.
+//
+#include "winresrc.h"
+#ifndef IDC_STATIC
+#undef IDC_STATIC
+#endif
+#define IDC_STATIC (-1)
+
+/////////////////////////////////////////////////////////////////////////////
+#undef APSTUDIO_READONLY_SYMBOLS
+
+/////////////////////////////////////////////////////////////////////////////
+// Русский (Россия) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_RUS)
+LANGUAGE LANG_RUSSIAN, SUBLANG_DEFAULT
+#pragma code_page(1251)
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
+IDD_FILTER_ROUTE_DLG DIALOGEX 0, 0, 327, 261
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Route add"
+FONT 8, "Courier New", 400, 0, 0xCC
+BEGIN
+    DEFPUSHBUTTON   "ОК",IDOK,217,240,50,14
+    PUSHBUTTON      "Отмена",IDCANCEL,270,240,50,14
+    LTEXT           "Настройки",IDC_STATIC,7,9,37,8
+    EDITTEXT        IDC_FILE,47,7,169,14,ES_AUTOHSCROLL
+    PUSHBUTTON      "Open",IDC_BROWSE,217,7,50,14
+    PUSHBUTTON      "Save",IDC_SAVE,270,7,50,14
+    EDITTEXT        IDC_FILE_MAP,47,25,217,14,ES_AUTOHSCROLL
+    EDITTEXT        IDC_FILE_LOGO,47,40,217,14,ES_AUTOHSCROLL
+    EDITTEXT        IDC_FILE_PATH,47,54,217,14,ES_AUTOHSCROLL
+    EDITTEXT        IDC_FILE_POINTER,47,69,217,14,ES_AUTOHSCROLL
+    PUSHBUTTON      "Найти",IDC_BROWSE_MAP,270,24,50,14
+    PUSHBUTTON      "Найти",IDC_BROWSE_LOGO,270,38,50,14
+    PUSHBUTTON      "Найти",IDC_BROWSE_PATH,270,53,50,14
+    PUSHBUTTON      "Найти",IDC_BROWSE_POINTER,270,68,50,14
+    LTEXT           "Карта",IDC_STATIC,7,28,22,8
+    LTEXT           "Лого",IDC_STATIC,7,41,17,8
+    LTEXT           "Путь",IDC_STATIC,7,55,18,8
+    LTEXT           "Точка",IDC_STATIC,7,69,21,8
+    EDITTEXT        IDC_POS_X,47,112,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_POS_Y,85,112,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_POS_W,123,112,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_POS_H,161,112,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_POS_OP,199,112,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_POS_TAIL,293,113,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    LTEXT           "Позиция",IDC_STATIC,7,113,29,8
+    LTEXT           "X",IDC_STATIC,47,101,8,8
+    LTEXT           "Y",IDC_STATIC,85,101,8,8
+    LTEXT           "W",IDC_STATIC,123,101,8,8
+    LTEXT           "H",IDC_STATIC,161,101,8,8
+    LTEXT           "Видимость",IDC_STATIC,195,101,39,8
+    LTEXT           "Хвост",IDC_STATIC,270,115,20,8
+    EDITTEXT        IDC_LEG_X,47,128,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_LEG_Y,85,128,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_LEG_W,123,128,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_LEG_H,161,128,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_LEG_OP,199,128,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_LEG_MARG,293,129,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    LTEXT           "Перегон",IDC_STATIC,7,129,29,8
+    LTEXT           "Поля",IDC_STATIC,269,131,20,8
+    EDITTEXT        IDC_LOGO_X,47,145,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_LOGO_Y,85,145,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_LOGO_OP,199,145,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    LTEXT           "Лого",IDC_STATIC,7,145,17,8
+    EDITTEXT        IDC_TEXT_X,47,161,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_TEXT_Y,85,161,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_TEXT_W,123,161,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_TEXT_H,161,161,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_TEXT_COLOR,227,160,40,14,ES_AUTOHSCROLL
+    LTEXT           "Текст",IDC_STATIC,7,161,20,8
+    LTEXT           "Цвет",IDC_STATIC,240,101,20,8
+    EDITTEXT        IDC_TIME_X,47,187,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_TIME_Y,85,187,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_TIME_FONT,123,187,63,14,ES_AUTOHSCROLL
+    EDITTEXT        IDC_TIME_COLOR,227,187,40,14,ES_AUTOHSCROLL
+    LTEXT           "Время",IDC_STATIC,7,187,21,8
+    LTEXT           "Шрифт",IDC_STATIC,124,177,24,8
+    EDITTEXT        IDC_TIME_SIZE,199,187,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    LTEXT           "Размер",IDC_STATIC,200,176,26,8
+    EDITTEXT        IDC_PACE_X,47,202,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_PACE_Y,85,202,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_PACE_FONT,123,202,63,14,ES_AUTOHSCROLL
+    EDITTEXT        IDC_PACE_COLOR,227,202,40,14,ES_AUTOHSCROLL
+    LTEXT           "Темп",IDC_STATIC,7,202,17,8
+    EDITTEXT        IDC_PACE_SIZE,199,202,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_PACE_AVG,293,202,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    LTEXT           "Ср.",IDC_STATIC,278,203,14,8
+    EDITTEXT        IDC_POS_COLOR,227,112,40,14,ES_AUTOHSCROLL
+    EDITTEXT        IDC_PULSE_X,47,217,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_PULSE_Y,85,217,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_PULSE_FONT,123,217,63,14,ES_AUTOHSCROLL
+    EDITTEXT        IDC_PULSE_COLOR,227,217,40,14,ES_AUTOHSCROLL
+    LTEXT           "Пульс",IDC_STATIC,7,217,21,8
+    EDITTEXT        IDC_PULSE_SIZE,199,217,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_PATH_OFFSET,47,84,64,14,ES_AUTOHSCROLL | ES_NUMBER
+    LTEXT           "Старт",IDC_STATIC,7,86,22,8
+    EDITTEXT        IDC_LEG_COLOR,227,128,40,14,ES_AUTOHSCROLL
+    LTEXT           "Видимость точки",IDC_STATIC,123,87,61,8
+    EDITTEXT        IDC_POINTER_OP,187,84,27,14,ES_AUTOHSCROLL | ES_NUMBER
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// DESIGNINFO
+//
+
+#ifdef APSTUDIO_INVOKED
+GUIDELINES DESIGNINFO
+BEGIN
+    IDD_FILTER_ROUTE_DLG, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 320
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 254
+    END
+END
+#endif    // APSTUDIO_INVOKED
+
+#endif    // Русский (Россия) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+/////////////////////////////////////////////////////////////////////////////
+// Английский (США) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+#pragma code_page(1252)
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE 
+BEGIN
+    "resource.h\0"
+END
+
+2 TEXTINCLUDE 
+BEGIN
+    "#include ""winresrc.h""\r\n"
+    "#ifndef IDC_STATIC\r\n"
+    "#undef IDC_STATIC\r\n"
+    "#endif\r\n"
+    "#define IDC_STATIC (-1)\r\n"
+    "\0"
+END
+
+3 TEXTINCLUDE 
+BEGIN
+    "\r\n"
+    "\0"
+END
+
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
+IDD_FILTER_YUVTRANSFORM DIALOGEX 0, 0, 186, 95
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Filter: YUV Transform"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    LTEXT           "&Y scale",IDC_STATIC,7,7,61,15,SS_CENTERIMAGE
+    CONTROL         "",IDC_YSCALE,"msctls_trackbar32",TBS_BOTH | TBS_NOTICKS | WS_TABSTOP,68,7,111,15
+    LTEXT           "&U scale",IDC_STATIC,7,22,61,15,SS_CENTERIMAGE
+    CONTROL         "",IDC_USCALE,"msctls_trackbar32",TBS_BOTH | TBS_NOTICKS | WS_TABSTOP,68,22,111,15
+    LTEXT           "&V scale",IDC_STATIC,7,37,61,15,SS_CENTERIMAGE
+    CONTROL         "",IDC_VSCALE,"msctls_trackbar32",TBS_BOTH | TBS_NOTICKS | WS_TABSTOP,68,37,111,15
+    PUSHBUTTON      "Show &preview",IDC_PREVIEW,7,74,50,14,WS_DISABLED
+    DEFPUSHBUTTON   "OK",IDOK,77,74,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,129,74,50,14
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// DESIGNINFO
+//
+
+#ifdef APSTUDIO_INVOKED
+GUIDELINES DESIGNINFO
+BEGIN
+    IDD_FILTER_YUVTRANSFORM, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 179
+        VERTGUIDE, 68
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 88
+    END
+END
+#endif    // APSTUDIO_INVOKED
+
+#endif    // Английский (США) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+
+#ifndef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 3 resource.
+//
+
+
+/////////////////////////////////////////////////////////////////////////////
+#endif    // not APSTUDIO_INVOKED
+

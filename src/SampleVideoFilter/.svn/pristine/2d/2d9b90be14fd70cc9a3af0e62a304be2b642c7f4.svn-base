@@ -1,0 +1,630 @@
+#include <windows.h>
+#include <commctrl.h>
+#include <gdiplus.h>
+#include <stdio.h>
+#include <vd2/VDXFrame/VideoFilter.h>
+#include <vd2/VDXFrame/VideoFilterDialog.h>
+#include "../resource.h"
+#include "gdiplusheaders.h"
+
+#include "pugixml.hpp"
+
+using namespace Gdiplus;
+#pragma comment (lib,"Gdiplus.lib")
+
+extern int g_VFVAPIVersion;
+
+///////////////////////////////////////////////////////////////////////////////
+
+#pragma region ConfigDialog
+
+class RouteFilterConfig {
+public:
+	RouteFilterConfig()
+	{
+		strcpy(mFile, "c:\\rgmapvideo\\settings.xml");
+	}
+
+public:
+	char mFile[1024];
+};
+
+///////////////////////////////////////////////////////////////////////////////
+
+class RouteFilterDialog : public VDXVideoFilterDialog {
+public:
+	RouteFilterDialog(RouteFilterConfig& config, IVDXFilterPreview *ifp) : mConfig(config) /*, mifp(ifp)*/ {}
+
+	bool Show(HWND parent) {
+		return 0 != VDXVideoFilterDialog::Show(NULL, MAKEINTRESOURCE(IDD_FILTER_ROUTE_DLG), parent);
+	}
+
+	virtual INT_PTR DlgProc(UINT msg, WPARAM wParam, LPARAM lParam);
+
+protected:
+	bool OnInit();
+	bool OnCommand(int cmd);
+	void OnDestroy();
+
+	void LoadFromConfig();
+	bool SaveToConfig();
+
+	RouteFilterConfig& mConfig;
+	RouteFilterConfig mOldConfig;
+};
+
+INT_PTR RouteFilterDialog::DlgProc(UINT msg, WPARAM wParam, LPARAM lParam) {
+	switch(msg) {
+		case WM_INITDIALOG:
+			return !OnInit();
+
+		case WM_DESTROY:
+			OnDestroy();
+			break;
+
+		case WM_COMMAND:
+			if (OnCommand(LOWORD(wParam)))
+				return TRUE;
+			break;
+	}
+
+	return FALSE;
+}
+
+bool RouteFilterDialog::OnInit() {
+	mOldConfig = mConfig;
+
+	LoadFromConfig();
+
+	return false;
+}
+
+void RouteFilterDialog::OnDestroy() {
+}
+
+bool RouteFilterDialog::OnCommand(int cmd) {
+	switch(cmd) {
+		case IDOK:
+			SaveToConfig();
+			EndDialog(mhdlg, true);
+			return true;
+
+		case IDCANCEL:
+			mConfig = mOldConfig;
+			EndDialog(mhdlg, false);
+			return true;
+
+		case IDC_BROWSE:
+			{
+				OPENFILENAME ofn; 
+				char szFile[1024];
+				// Initialize OPENFILENAME
+				ZeroMemory(&ofn, sizeof(ofn));
+				ofn.lStructSize = sizeof(ofn);
+				ofn.hwndOwner = mhdlg;
+				ofn.lpstrFile = szFile;
+				// Set lpstrFile[0] to '\0' so that GetOpenFileName does not 
+				// use the contents of szFile to initialize itself.
+				ofn.lpstrFile[0] = '\0';
+				ofn.nMaxFile = sizeof(szFile);
+				ofn.lpstrFilter = "All\0*.*\0XML\0*.xml\0";
+				ofn.nFilterIndex = 1;
+				ofn.lpstrFileTitle = NULL;
+				ofn.nMaxFileTitle = 0;
+				ofn.lpstrInitialDir = NULL;
+				ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
+
+				// Display the Open dialog box. 
+
+				if (GetOpenFileName(&ofn)==TRUE) 
+				{
+					SetDlgItemText(mhdlg, IDC_FILE, szFile);
+					SaveToConfig();
+				}
+			}
+			return true;
+	}
+
+	return false;
+}
+
+void RouteFilterDialog::LoadFromConfig() 
+{
+	SetDlgItemText(mhdlg, IDC_FILE, mConfig.mFile);
+}
+
+bool RouteFilterDialog::SaveToConfig() 
+{
+	char file_name[1024];
+	UINT retI = GetDlgItemText(mhdlg, IDC_FILE, file_name, 1024);
+	retI = strcmp(mConfig.mFile, file_name);
+	strcpy_s(mConfig.mFile, 1024, file_name);
+    bool ret = retI != 0; 
+	return ret;
+}
+
+#pragma endregion ConfigDialog
+
+///////////////////////////////////////////////////////////////////////////////
+
+class RouteFilter : public VDXVideoFilter {
+public:
+    RouteFilter() : 
+      m_pMap(NULL), 
+      m_pLogo(NULL), 
+      m_pPointer(NULL),
+      m_pPenTail(NULL),
+      m_pTimeBrush(NULL), 
+      m_pTimeFont(NULL),
+      m_pPaceBrush(NULL), 
+      m_pPaceFont(NULL)
+    {
+        gdiplusToken = NULL;
+    }
+    RouteFilter::RouteFilter(const RouteFilter &f)
+    {
+        throw NotImplemented;
+    }
+    virtual ~RouteFilter();
+
+	virtual uint32 GetParams();
+    virtual bool Init();
+	virtual void Start();
+	virtual void Run();
+	virtual void End();
+	virtual bool Configure(VDXHWND hwnd);
+	virtual void GetSettingString(char *buf, int maxlen);
+	virtual void GetScriptString(char *buf, int maxlen);
+
+	VDXVF_DECLARE_SCRIPT_METHODS();
+
+protected:
+    Bitmap *PrepareRGB32(void* data, uint32 pitch, uint32 w, uint32 h);
+	void DrawRoute(Bitmap *bmp, uint32 ms);
+    void ApplyRGB32(Bitmap *bmp, void* data, uint32 pitch, uint32 w, uint32 h);
+
+	void ScriptConfig(IVDXScriptInterpreter *isi, const VDXScriptValue *argv, int argc);
+
+	RouteFilterConfig	mConfig;
+	GdiplusStartupInput gdiplusStartupInput;
+	ULONG_PTR           gdiplusToken;
+
+   	pugi::xml_document  m_SettingsDoc;
+    Bitmap             *m_pMap;
+
+    Bitmap             *m_pPointer;
+    int                 m_PointerOpaque;
+    int                 m_PosOpaque, m_PosX, m_PosY, m_PosWidth, m_PosHeight;
+    int                 m_PosTail;
+    Pen                *m_pPenTail;
+    int                 m_LegOpaque, m_LegX, m_LegY, m_LegWidth, m_LegHeight;
+
+    Bitmap             *m_pLogo;
+    int                 m_LogoOpaque, m_LogoX, m_LogoY;
+
+    int32               m_TimeOffset;   //ms
+    
+    PointF              m_TimePos;
+    Font               *m_pTimeFont;
+    SolidBrush         *m_pTimeBrush;
+   	
+    PointF              m_PacePos;
+    Font               *m_pPaceFont;
+    SolidBrush         *m_pPaceBrush;
+    int                 m_AvgTail;
+
+    pugi::xml_document  m_PathDoc;
+    pugi::xml_node      m_current_Sample;
+};
+
+VDXVF_BEGIN_SCRIPT_METHODS(RouteFilter)
+VDXVF_DEFINE_SCRIPT_METHOD(RouteFilter, ScriptConfig, "s")
+VDXVF_END_SCRIPT_METHODS()
+
+uint32 RouteFilter::GetParams() {
+	if (g_VFVAPIVersion >= 12) {
+		switch(fa->src.mpPixmapLayout->format) {
+			case nsVDXPixmap::kPixFormat_XRGB8888:
+				break;
+
+			default:
+				return FILTERPARAM_NOT_SUPPORTED;
+		}
+	}
+
+	fa->dst.offset = fa->src.offset;
+	return FILTERPARAM_SUPPORTS_ALTFORMATS;
+}
+
+
+
+RouteFilter::~RouteFilter()
+{
+    if (gdiplusToken)
+    {
+    	GdiplusShutdown(gdiplusToken);
+        gdiplusToken = NULL;
+    }
+}
+
+bool RouteFilter::Init()
+{
+    bool ret = VDXVideoFilter::Init();
+
+	if (gdiplusToken == NULL)
+    {
+        // Initialize GDI+.
+	    GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
+    }
+
+    return ret;
+}
+
+#define CapsCharToVal(x) (*(x)>'9'?*(x)-'A'+10:*(x)-'0')
+#define CapsCharToVal2(x) (CapsCharToVal(x+1)|(CapsCharToVal(x)<<4))
+
+void RouteFilter::Start() 
+{
+    if (mConfig.mFile[0] != 0)
+    {
+        pugi::xml_parse_result result = m_SettingsDoc.load_file(mConfig.mFile);
+        pugi::xml_node settings = m_SettingsDoc.child("RouteAddSettings");
+
+        //setup time position 
+        pugi::xml_node time_pos = settings.child("Time");
+        WCHAR font_name[1024];
+        mbstowcs(font_name, time_pos.attribute("font").as_string(), 1024); 
+        m_pTimeFont = new Font(font_name, time_pos.attribute("size").as_float());
+        const char *str_color = time_pos.attribute("color").as_string();
+        BYTE r = CapsCharToVal2(str_color);
+        BYTE g = CapsCharToVal2(str_color+2);
+        BYTE b = CapsCharToVal2(str_color+4);
+        m_pTimeBrush = new SolidBrush(Color(r,g,b)); 
+        m_TimePos.X = time_pos.attribute("x").as_float();
+        m_TimePos.Y = time_pos.attribute("y").as_float();
+
+        //load map file image
+        pugi::xml_node map_file = settings.child("MapFile");
+
+        WCHAR file_name[1024];
+        mbstowcs(file_name, map_file.child_value(), 1024); 
+        m_pMap = Bitmap::FromFile(file_name);
+
+        //load logo image
+        pugi::xml_node logo_file = settings.child("Logo");
+
+        mbstowcs(file_name, logo_file.child_value(), 1024); 
+        m_pLogo = Bitmap::FromFile(file_name);
+        m_LogoX = logo_file.attribute("x").as_int();
+        m_LogoY = logo_file.attribute("y").as_int();
+        m_LogoOpaque = logo_file.attribute("opaq").as_int();
+
+        //setup pointer 
+        pugi::xml_node pointer_map = settings.child("Pointer");
+        mbstowcs(file_name, pointer_map.child_value(), 1024); 
+        m_pPointer = Bitmap::FromFile(file_name);
+        m_PointerOpaque = pointer_map.attribute("opaq").as_int();
+
+        //setup pos view 
+        pugi::xml_node pos_map = settings.child("PosMap");
+        m_PosX = pos_map.attribute("x").as_int();
+        m_PosY = pos_map.attribute("y").as_int();
+        m_PosWidth = pos_map.attribute("w").as_int();
+        m_PosHeight = pos_map.attribute("h").as_int();
+        m_PosOpaque = pos_map.attribute("opaq").as_int();
+        m_PosTail = pos_map.attribute("tail").as_int();
+        str_color = pos_map.attribute("color").as_string();
+        r = CapsCharToVal2(str_color);
+        g = CapsCharToVal2(str_color+2);
+        b = CapsCharToVal2(str_color+4);
+        int  pen_size = pos_map.attribute("size").as_int();
+        m_pPenTail = new Pen(Color(r,g,b), pen_size);
+
+        //load path
+        pugi::xml_node path_file = settings.child("PathFile");
+        result = m_PathDoc.load_file(path_file.child_value());
+        m_current_Sample = m_PathDoc.child("Route").child("Segment").first_child();
+        m_TimeOffset = path_file.attribute("offset").as_int();
+
+        pugi::xml_node leg_map = settings.child("Leg");
+
+        //setup pace
+        pugi::xml_node pace_pos = settings.child("Pace");
+        mbstowcs(font_name, pace_pos.attribute("font").as_string(), 1024); 
+        m_pPaceFont = new Font(font_name, pace_pos.attribute("size").as_float());
+        str_color = pace_pos.attribute("color").as_string();
+        r = CapsCharToVal2(str_color);
+        g = CapsCharToVal2(str_color+2);
+        b = CapsCharToVal2(str_color+4);
+        m_pPaceBrush = new SolidBrush(Color(r,g,b)); 
+        m_PacePos.X = pace_pos.attribute("x").as_float();
+        m_PacePos.Y = pace_pos.attribute("y").as_float();
+        m_AvgTail = pace_pos.attribute("avg").as_int();
+
+        pugi::xml_node pulse_pos = settings.child("Pulse");
+
+    }
+}
+
+void RouteFilter::End()
+{
+    if (m_pLogo)
+    {
+        delete m_pLogo;
+        m_pLogo = NULL;
+    }
+    if (m_pPointer)
+    {
+        delete m_pLogo;
+        m_pLogo = NULL;
+    }
+    if (m_pTimeFont)
+    {
+        delete m_pTimeFont;
+        m_pTimeFont = NULL;
+    }
+    if (m_pTimeBrush)
+    {
+        delete m_pTimeBrush;
+        m_pTimeBrush = NULL;
+    }
+    if (m_pPaceFont)
+    {
+        delete m_pPaceFont;
+        m_pPaceFont = NULL;
+    }
+    if (m_pPaceBrush)
+    {
+        delete m_pPaceBrush;
+        m_pPaceBrush = NULL;
+    }
+    if (m_pMap)
+    {
+        delete m_pMap;
+        m_pMap = NULL;
+    }
+}
+
+void RouteFilter::Run() 
+{
+    if (!m_pMap) 
+        return;
+
+    if (g_VFVAPIVersion >= 12) 
+    {
+		const VDXPixmap& pxdst = *fa->dst.mpPixmap;
+		const VDXPixmap& pxsrc = *fa->src.mpPixmap;
+
+		switch(pxdst.format) {
+			case nsVDXPixmap::kPixFormat_XRGB8888:
+                Bitmap *pbmp = PrepareRGB32(pxdst.data, pxdst.pitch, pxdst.w, pxdst.h);
+                DrawRoute(pbmp, fa->pfsi->lSourceFrameMS);
+                ApplyRGB32(pbmp, pxdst.data, pxdst.pitch, pxdst.w, pxdst.h);
+                delete pbmp;
+				break;
+		}
+	} 
+    else 
+    {
+        Bitmap *pbmp = PrepareRGB32(fa->dst.data, fa->dst.pitch, fa->dst.w, fa->dst.h);
+        DrawRoute(pbmp, fa->pfsi->lSourceFrameMS);
+        ApplyRGB32(pbmp, fa->dst.data, fa->dst.pitch, fa->dst.w, fa->dst.h);
+        delete pbmp;
+	}
+}
+
+Bitmap* RouteFilter::PrepareRGB32(void *data, uint32 pitch, uint32 w, uint32 h)
+{
+    //create bitmap on frame!
+    Bitmap *pbmp = new Bitmap(w, h, pitch, PixelFormat32bppRGB, (BYTE*)data);
+    return pbmp;
+
+}
+
+void RouteFilter::ApplyRGB32(Bitmap *pbmp, void *data, uint32 pitch, uint32 w, uint32 h)
+{
+    //do nothing
+}
+
+bool RouteFilter::Configure(VDXHWND hwnd) {
+	RouteFilterDialog dlg(mConfig, fa->ifp);
+
+	return dlg.Show((HWND)hwnd);
+}
+
+void RouteFilter::GetSettingString(char *buf, int maxlen) {
+	SafePrintf(buf, maxlen, " (\"%s\")", mConfig.mFile);
+}
+
+void RouteFilter::GetScriptString(char *buf, int maxlen) {
+	char file_c[1024];
+	int j = 0;
+	for(int i = 0; i < sizeof(mConfig.mFile) && mConfig.mFile[i] != 0 && j < sizeof(file_c); i++, j++)
+	{
+		if (mConfig.mFile[i] == '\\')
+		{
+			file_c[j++] = '\\';
+		}
+		file_c[j] = mConfig.mFile[i]; 
+	}
+	file_c[j] = 0;
+
+	SafePrintf(buf, maxlen, "Config(\"%s\")", file_c);
+}
+
+void RouteFilter::DrawRoute(Bitmap *pbmp, uint32 ms) 
+{
+    Graphics graphics(pbmp);
+
+    int32 time_run = ms-m_TimeOffset;
+    if (time_run < 0)
+    {
+        time_run = 0;
+    }
+
+#pragma region DrawTime
+    //draw time text
+    WCHAR wstr[256];
+    uint32 hour = (time_run/1000)/3600;
+    uint32 min = ((time_run/1000)%3600)/60;
+    uint32 sec = (time_run/1000)%60;
+    wsprintfW(wstr, L"Время: %02i:%02i'%02i", hour, min, sec); 
+    graphics.DrawString(wstr, wcslen(wstr), m_pTimeFont, m_TimePos, m_pTimeBrush); 
+#pragma endregion DrawTime
+
+    //find current sample
+    pugi::xml_node last_sample = m_current_Sample;
+    double elapsed_time = m_current_Sample.attribute("elapsedTime").as_double();
+    while(time_run > (elapsed_time+1)*1000)
+    {
+        m_current_Sample = m_current_Sample.next_sibling();
+        if (m_current_Sample.empty())
+        {
+            m_current_Sample = last_sample;
+            break;
+        }
+        elapsed_time = m_current_Sample.attribute("elapsedTime").as_double();
+    }
+    while(time_run < elapsed_time*1000)
+    {
+        m_current_Sample = m_current_Sample.previous_sibling();
+        if (m_current_Sample.empty())
+        {
+            m_current_Sample = last_sample;
+            break;
+        }
+        elapsed_time = m_current_Sample.attribute("elapsedTime").as_double();
+    }
+
+    //draw pace
+    int pace_m = m_current_Sample.attribute("pace").as_int();
+    if (m_AvgTail > 1)
+    {
+        pugi::xml_node sample = m_current_Sample.previous_sibling();
+        for(int i = 1; i < m_AvgTail; i++)
+        {
+            if (!sample.empty())
+            {
+                pace_m += sample.attribute("pace").as_int();
+                sample = sample.previous_sibling();
+            }
+            else
+            {
+                pace_m += 30*60;
+            }
+        }
+        pace_m /= m_AvgTail;
+    }
+    if (pace_m > 30*60)
+    {
+        pace_m = 0;
+    }
+    int pace_s = pace_m%60;
+    pace_m /=60;
+    wsprintfW(wstr, L"Темп: %i'%02i", pace_m, pace_s); 
+    graphics.DrawString(wstr, wcslen(wstr), m_pPaceFont, m_PacePos, m_pPaceBrush);
+
+    //draw logo
+    if (m_pLogo)
+    {
+        ImageAttributes ImgAttr;
+        ColorMatrix ClrMatrix = { 
+                1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+                0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
+                0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
+                0.0f, 0.0f, 0.0f, m_LogoOpaque/(100.0f), 0.0f,
+                0.0f, 0.0f, 0.0f, 0.0f, 1.0f
+        };
+        ImgAttr.SetColorMatrix(&ClrMatrix, ColorMatrixFlagsDefault, ColorAdjustTypeBitmap);
+        Rect    destination(m_LogoX, m_LogoY, m_pLogo->GetWidth(), m_pLogo->GetHeight());
+        graphics.DrawImage(m_pLogo, destination, 0, 0, m_pLogo->GetWidth(), m_pLogo->GetHeight(), UnitPixel, &ImgAttr);
+    }
+
+    int32 last_lap = last_sample.attribute("lapNumber").as_int();
+    int32 cur_lap = m_current_Sample.attribute("lapNumber").as_int();
+    if (last_lap != cur_lap)
+    {
+        //rebuild leg image
+    }
+    
+    //draw current position
+    if (m_pMap && m_PosWidth > 0 && m_PosHeight > 0)
+    {
+        GraphicsState state = graphics.Save();
+
+        int32 image_x = m_current_Sample.attribute("imageX").as_int();
+        int32 image_y = m_current_Sample.attribute("imageY").as_int();
+        double head_direction = m_current_Sample.attribute("direction").as_double();
+
+        Rect clip_rect(m_PosX, m_PosY, m_PosWidth, m_PosHeight);
+        graphics.SetClip(clip_rect);
+
+        Matrix rotate_at_map;
+        PointF center(m_PosX+m_PosWidth/2, m_PosY+m_PosHeight/2);
+        PointF image_pos(image_x, image_y);
+        rotate_at_map.RotateAt(-head_direction, image_pos);
+        rotate_at_map.Translate(center.X-image_x, center.Y-image_y, MatrixOrderAppend);
+        graphics.SetTransform(&rotate_at_map);
+
+        ColorMatrix ClrMatrix = { 
+                1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+                0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
+                0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
+                0.0f, 0.0f, 0.0f, m_PosOpaque/(100.0f), 0.0f,
+                0.0f, 0.0f, 0.0f, 0.0f, 1.0f
+        };
+        ImageAttributes ImgAttr;
+        ImgAttr.SetColorMatrix(&ClrMatrix, ColorMatrixFlagsDefault, ColorAdjustTypeBitmap);
+
+        Rect    destination(0, 0, m_pMap->GetWidth(), m_pMap->GetHeight());
+        graphics.DrawImage(m_pMap, destination, 0, 0, m_pMap->GetWidth(), m_pMap->GetHeight(), UnitPixel, &ImgAttr);
+        //draw tail
+        {
+            int tail = m_PosTail;
+            int last_x = image_x;
+            int last_y = image_y;
+            pugi::xml_node sample = m_current_Sample.previous_sibling();
+            while(tail-- > 0)
+            {
+                if (sample.empty())
+                {
+                    break;
+                }
+                int new_img_x = sample.attribute("imageX").as_int();
+                int new_img_y = sample.attribute("imageY").as_int();
+                graphics.DrawLine(m_pPenTail, last_x, last_y, new_img_x, new_img_y);
+                last_x = new_img_x;
+                last_y = new_img_y;
+                sample = sample.previous_sibling();
+            }
+        }
+
+        graphics.Restore(state);
+
+        //draw pointer
+        {
+            ImageAttributes ImgAttr;
+            ColorMatrix ClrMatrix = { 
+                    1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+                    0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
+                    0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
+                    0.0f, 0.0f, 0.0f, m_PointerOpaque/(100.0f), 0.0f,
+                    0.0f, 0.0f, 0.0f, 0.0f, 1.0f
+            };
+            ImgAttr.SetColorMatrix(&ClrMatrix, ColorMatrixFlagsDefault, ColorAdjustTypeBitmap);
+            Rect    destination(m_PosX + m_PosWidth/2 - m_pPointer->GetWidth()/2, m_PosY + m_PosHeight/2 - m_pPointer->GetHeight()/2, m_pPointer->GetWidth(), m_pPointer->GetHeight());
+            graphics.DrawImage(m_pPointer, destination, 0, 0, m_pPointer->GetWidth(), m_pPointer->GetHeight(), UnitPixel, &ImgAttr);
+        }
+
+    }
+    return;
+
+}
+
+void RouteFilter::ScriptConfig(IVDXScriptInterpreter *isi, const VDXScriptValue *argv, int argc) {
+	strcpy_s(mConfig.mFile, 1024, *argv[0].asString());
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+extern VDXFilterDefinition filterDef_RouteAdd = VDXVideoFilterDefinition<RouteFilter>("Vorfol", "Route add", "Add route.");

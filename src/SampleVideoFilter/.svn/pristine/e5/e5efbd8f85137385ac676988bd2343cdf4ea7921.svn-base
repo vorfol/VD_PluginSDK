@@ -1,0 +1,1376 @@
+// /s c:\rgmapvideo\debug.jobs
+#include <windows.h>
+#include <commctrl.h>
+#include <gdiplus.h>
+#include <stdio.h>
+#include <vector>
+#include <sstream>
+
+#include <vd2/VDXFrame/VideoFilter.h>
+#include <vd2/VDXFrame/VideoFilterDialog.h>
+#include "../resource.h"
+#include "gdiplusheaders.h"
+
+#include "pugixml.hpp"
+
+#define _USE_MATH_DEFINES
+#include "math.h"
+
+using namespace Gdiplus;
+#pragma comment (lib,"Gdiplus.lib")
+
+extern int g_VFVAPIVersion;
+
+class GDIToken
+{
+protected:
+    GdiplusStartupInput gdiplusStartupInput;
+    ULONG_PTR           gdiplusToken;
+public:
+    GDIToken()
+    {
+        GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
+    }
+    ~GDIToken()
+    {
+        //GdiplusShutdown(gdiplusToken);
+    }
+};
+
+///////////////////////////////////////////////////////////////////////////////
+#pragma region RouteFilterConfig
+
+class RouteFilterConfig {
+public:
+	RouteFilterConfig()
+	{
+        InitDef();
+	}
+
+	//RouteFilterConfig(const RouteFilterConfig &cfg);
+
+    void            InitDef();
+    std::string     BuildConfigString();
+    bool            BuildXml(pugi::xml_document &doc);
+
+    bool            From_ConfigString(const char*);
+    bool            FromXml(pugi::xml_document &doc);
+
+public:
+
+	char                m_File[1024];       //save/load config - do not stored in config string
+
+	char                m_Map[1024];        //map file
+	char                m_Logo[1024];       //logo file
+	char                m_Path[1024];       //path file
+	char                m_Pointer[1024];    //pointer file
+
+    int                 m_PointerOpaque; 
+
+    //current position view
+    int                 m_PosX; 
+    int                 m_PosY; 
+    int                 m_PosWidth; 
+    int                 m_PosHeight;
+    int                 m_PosOpaque; 
+    int                 m_PosTail;
+    Color               m_PosColor;        //with alfa channel
+    int                 m_PosSize;
+
+    //leg view
+    int                 m_LegX;
+    int                 m_LegY;
+    int                 m_LegWidth;
+    int                 m_LegHeight;
+    int                 m_LegOpaque;
+    int                 m_LegMargins;
+    Color               m_LegColor;        //with alfa channel
+    int                 m_LegSize;
+
+    //logo view
+    int                 m_LogoX;
+    int                 m_LogoY;
+    int                 m_LogoOpaque;
+
+    int32               m_PathOffset;   //in ms from start of video (may be negative)
+    
+    //text view
+    int                 m_TextX;
+    int                 m_TextY;
+    int                 m_TextWidth;
+    int                 m_TextHeight;
+    Color               m_TextColor;    //with alfa channel
+
+    //run time (inside text view)
+    int                 m_TimeX;
+    int                 m_TimeY;
+    char                m_TimeFont[256];
+    int                 m_TimeSize;
+    Color               m_TimeColor;
+   	
+    //pace (inside text view)
+    int                 m_PaceX;
+    int                 m_PaceY;
+    char                m_PaceFont[256];
+    int                 m_PaceSize;
+    Color               m_PaceColor;
+    int                 m_PaceAvg;    //in samples - to calculate average pace
+
+    //pulse (inside text view)
+    int                 m_PulseX;
+    int                 m_PulseY;
+    char                m_PulseFont[256];
+    int                 m_PulseSize;
+    Color               m_PulseColor;
+
+};
+
+void RouteFilterConfig::InitDef()
+{
+    strcpy_s(m_File, sizeof(m_File)/sizeof(m_File[0]), "c:\\rgmapvideo\\settings.xml");
+    
+    strcpy_s(m_Map, sizeof(m_Map)/sizeof(m_Map[0]), "c:\\rgmapvideo\\map.jpg");
+    strcpy_s(m_Logo, sizeof(m_Logo)/sizeof(m_Logo[0]), "c:\\rgmapvideo\\logo_t.png");
+    strcpy_s(m_Path, sizeof(m_Path)/sizeof(m_Path[0]), "c:\\rgmapvideo\\route.xml");
+    strcpy_s(m_Pointer, sizeof(m_Pointer)/sizeof(m_Pointer[0]), "c:\\rgmapvideo\\pointer.png");
+
+    m_PointerOpaque = 80; 
+
+    //current position view
+    m_PosX = 960; 
+    m_PosY = 400; 
+    m_PosWidth = 300; 
+    m_PosHeight = 300;
+    m_PosOpaque = 80; 
+    m_PosTail = 60;
+    m_PosColor = Color(128, 255, 0, 0);
+    m_PosSize = 3;
+
+    //leg view
+    m_LegX = 20;
+    m_LegY = 200;
+    m_LegWidth = 300;
+    m_LegHeight = 500;
+    m_LegOpaque = 90;
+    m_LegMargins = 30;
+    m_LegColor = Color(128, 255, 0, 0);
+    m_LegSize = 3;
+
+    //logo view
+    m_LogoX = 1132;
+    m_LogoY = 20;
+    m_LogoOpaque = 80;
+
+    m_PathOffset = 0;   //in ms from start of video (may be negative)
+    
+    //text view
+    m_TextX = 0;
+    m_TextY = 0;
+    m_TextWidth = 200;
+    m_TextHeight = 80;
+    m_TextColor = Color(128,80,80,80);    //with alfa channel
+
+    //run time (inside text view)
+    m_TimeX = 0;
+    m_TimeY = 0;
+    strcpy_s(m_TimeFont, sizeof(m_TimeFont)/sizeof(m_TimeFont[0]), "Courier");
+    m_TimeSize = 16;
+    m_TimeColor = Color(255,255,255,255);
+   	
+    //pace (inside text view)
+    m_PaceX = 0;
+    m_PaceY = 20;
+    strcpy_s(m_PaceFont, sizeof(m_PaceFont)/sizeof(m_PaceFont[0]), "Courier");
+    m_PaceSize = 16;
+    m_PaceColor = Color(255,255,255,255);
+    m_PaceAvg = 30;  //in samples - to calculate average pace
+
+    //pulse (inside text view)
+    m_PulseX = 0;
+    m_PulseY = 40;
+    strcpy_s(m_PulseFont, sizeof(m_PulseFont)/sizeof(m_PulseFont[0]), "Courier");
+    m_PulseSize = 16;
+    m_PulseColor = Color(255,255,255,255);
+
+}
+
+bool  RouteFilterConfig::BuildXml(pugi::xml_document &doc)
+{
+    char color_str[16];
+
+    doc.reset();
+    pugi::xml_node settings = doc.append_child("RouteAddSettings");
+
+    pugi::xml_node map_file = settings.append_child("Map");
+    map_file.text().set(m_Map);
+
+    pugi::xml_node logo_file = settings.append_child("Logo");
+    logo_file.text().set(m_Logo);
+    logo_file.append_attribute("x") = m_LogoX;
+    logo_file.append_attribute("y") = m_LogoY;
+    logo_file.append_attribute("opaq") = m_LogoOpaque;
+
+    pugi::xml_node pointer_file = settings.append_child("Pointer");
+    pointer_file.text().set(m_Pointer);
+    pointer_file.append_attribute("opaq") = m_PointerOpaque;
+
+    pugi::xml_node path_file = settings.append_child("Path");
+    path_file.text().set(m_Path);
+    path_file.append_attribute("offset") = m_PathOffset;
+
+    pugi::xml_node leg_view = settings.append_child("Leg");
+    leg_view.append_attribute("x") = m_LegX;
+    leg_view.append_attribute("y") = m_LegY;
+    leg_view.append_attribute("w") = m_LegWidth;
+    leg_view.append_attribute("h") = m_LegHeight;
+    leg_view.append_attribute("opaq") = m_LegOpaque;
+    sprintf(color_str, "%0X", m_LegColor.GetValue());
+    leg_view.append_attribute("color") = color_str;
+    leg_view.append_attribute("size") = m_LegSize;
+    leg_view.append_attribute("margins") = m_LegMargins;
+
+    pugi::xml_node pos_view = settings.append_child("Pos");
+    pos_view.append_attribute("x") = m_PosX;
+    pos_view.append_attribute("y") = m_PosY;
+    pos_view.append_attribute("w") = m_PosWidth;
+    pos_view.append_attribute("h") = m_PosHeight;
+    pos_view.append_attribute("opaq") = m_PosOpaque;
+    sprintf(color_str, "%0X", m_PosColor.GetValue());
+    pos_view.append_attribute("color") = color_str;
+    pos_view.append_attribute("size") = m_PosSize;
+
+    pugi::xml_node text_view = settings.append_child("Text");
+    text_view.append_attribute("x") = m_TextX;
+    text_view.append_attribute("y") = m_TextY;
+    text_view.append_attribute("w") = m_TextWidth;
+    text_view.append_attribute("h") = m_TextHeight;
+    sprintf(color_str, "%0X", m_TextColor.GetValue());
+    text_view.append_attribute("color") = color_str;
+
+    pugi::xml_node time_text = settings.append_child("Time");
+    time_text.append_attribute("x") = m_TimeX;
+    time_text.append_attribute("y") = m_TimeY;
+    time_text.append_attribute("size") = m_TimeSize;
+    time_text.append_attribute("font") = m_TimeFont;
+    sprintf(color_str, "%0X", m_TimeColor.GetValue());
+    time_text.append_attribute("color") = color_str;
+
+    pugi::xml_node pace_text = settings.append_child("Pace");
+    pace_text.append_attribute("x") = m_PaceX;
+    pace_text.append_attribute("y") = m_PaceY;
+    pace_text.append_attribute("size") = m_PaceSize;
+    pace_text.append_attribute("font") = m_PaceFont;
+    sprintf(color_str, "%0X", m_PaceColor.GetValue());
+    pace_text.append_attribute("color") = color_str;
+
+    pugi::xml_node pulse_text = settings.append_child("Pulse");
+    pulse_text.append_attribute("x") = m_PulseX;
+    pulse_text.append_attribute("y") = m_PulseY;
+    pulse_text.append_attribute("size") = m_PulseSize;
+    pulse_text.append_attribute("font") = m_PulseFont;
+    sprintf(color_str, "%0X", m_PulseColor.GetValue());
+    pulse_text.append_attribute("color") = color_str;
+
+    return true;
+}
+
+bool RouteFilterConfig::FromXml(pugi::xml_document &doc)
+{
+    ARGB    color;
+
+    pugi::xml_node settings = doc.child("RouteAddSettings");
+
+    pugi::xml_node map_file = settings.child("Map");
+    strcpy_s(m_Map, sizeof(m_Map)/sizeof(m_Map[0]), map_file.child_value());
+
+    pugi::xml_node logo_file = settings.child("Logo");
+    strcpy_s(m_Logo, sizeof(m_Logo)/sizeof(m_Logo[0]), logo_file.child_value());
+    m_LogoX = logo_file.attribute("x").as_int();
+    m_LogoY = logo_file.attribute("y").as_int();
+    m_LogoOpaque = logo_file.attribute("opaq").as_int();
+
+    pugi::xml_node pointer_file = settings.child("Pointer");
+    strcpy_s(m_Pointer, sizeof(m_Pointer)/sizeof(m_Pointer[0]), pointer_file.child_value());
+    pointer_file.text().set(m_Pointer);
+    m_PointerOpaque = pointer_file.attribute("opaq").as_int();
+
+    pugi::xml_node path_file = settings.child("Path");
+    strcpy_s(m_Path, sizeof(m_Path)/sizeof(m_Path[0]), path_file.child_value());
+    m_PathOffset = path_file.attribute("offset").as_int();
+
+    pugi::xml_node leg_view = settings.child("Leg");
+    m_LegX = leg_view.attribute("x").as_int();
+    m_LegY = leg_view.attribute("y").as_int();
+    m_LegWidth = leg_view.attribute("w").as_int();
+    m_LegHeight = leg_view.attribute("h").as_int();
+    m_LegOpaque = leg_view.attribute("opaq").as_int();
+    sscanf_s(leg_view.attribute("color").as_string(), "%X", &color, sizeof(color));
+    m_LegColor = color;
+    m_LegSize = leg_view.attribute("size").as_int();
+    m_LegMargins = leg_view.attribute("margins").as_int();
+
+    pugi::xml_node pos_view = settings.child("Pos");
+    m_PosX = pos_view.attribute("x").as_int();
+    m_PosY = pos_view.attribute("y").as_int();
+    m_PosWidth = pos_view.attribute("w").as_int();
+    m_PosHeight = pos_view.attribute("h").as_int();
+    m_PosOpaque = pos_view.attribute("opaq").as_int();
+    sscanf_s(pos_view.attribute("color").as_string(), "%X", &color, sizeof(color));
+    m_PosColor = color;
+    m_PosSize = pos_view.attribute("size").as_int();
+
+    pugi::xml_node text_view = settings.child("Text");
+    m_TextX = text_view.attribute("x").as_int();
+    m_TextY = text_view.attribute("y").as_int();
+    m_TextWidth = text_view.attribute("w").as_int();
+    m_TextHeight = text_view.attribute("h").as_int();
+    sscanf_s(text_view.attribute("color").as_string(), "%X", &color, sizeof(color));
+    m_TextColor = color;
+
+    pugi::xml_node time_text = settings.child("Time");
+    m_TimeX = time_text.attribute("x").as_int();
+    m_TimeY = time_text.attribute("y").as_int();
+    strcpy_s(m_TimeFont, sizeof(m_TimeFont)/sizeof(m_TimeFont[0]), time_text.attribute("font").as_string());
+    sscanf_s(time_text.attribute("color").as_string(), "%X", &color, sizeof(color));
+    m_TimeColor = color;
+    m_TimeSize = time_text.attribute("size").as_int();
+
+    pugi::xml_node pace_text = settings.child("Pace");
+    m_PaceX = pace_text.attribute("x").as_int();
+    m_PaceY = pace_text.attribute("y").as_int();
+    strcpy_s(m_PaceFont, sizeof(m_PaceFont)/sizeof(m_PaceFont[0]), pace_text.attribute("font").as_string());
+    sscanf_s(pace_text.attribute("color").as_string(), "%X", &color, sizeof(color));
+    m_PaceColor = color;
+    m_PaceSize = pace_text.attribute("size").as_int();
+
+    pugi::xml_node pulse_text = settings.child("Pulse");
+    m_PulseX = pulse_text.attribute("x").as_int();
+    m_PulseY = pulse_text.attribute("y").as_int();
+    strcpy_s(m_PulseFont, sizeof(m_PulseFont)/sizeof(m_PulseFont[0]), pulse_text.attribute("font").as_string());
+    sscanf_s(pulse_text.attribute("color").as_string(), "%X", &color, sizeof(color));
+    m_PulseColor = color;
+    m_PulseSize = pulse_text.attribute("size").as_int();
+
+    return true;
+}
+
+std::string base64_encode(unsigned char const* bytes_to_encode, unsigned int in_len);
+std::string base64_decode(std::string const& encoded_string);
+
+std::string RouteFilterConfig::BuildConfigString()
+{
+    pugi::xml_document doc;
+    BuildXml(doc);
+
+    std::stringstream doc_stream;
+    doc.save(doc_stream);
+
+    std::string encoded = base64_encode((const unsigned char*)(doc_stream.str().c_str()), doc_stream.str().size());
+
+    return encoded;
+}
+
+bool RouteFilterConfig::From_ConfigString(const char* config_str)
+{
+    std::string encoded(config_str);
+    std::string decoded = base64_decode(encoded);
+
+    std::stringstream doc_stream(decoded);
+    
+    pugi::xml_document doc;
+    if (doc.load(doc_stream))
+    {
+        return FromXml(doc);
+    }
+    return false;
+}
+#pragma endregion RouteFilterConfig
+
+
+#pragma region ConfigDialog
+///////////////////////////////////////////////////////////////////////////////
+
+
+class RouteFilterDialog : public VDXVideoFilterDialog {
+public:
+	RouteFilterDialog(RouteFilterConfig& config, IVDXFilterPreview *ifp) : m_Config(config) 
+    {
+    }
+
+	bool Show(HWND parent) 
+    {
+		return 0 != VDXVideoFilterDialog::Show(NULL, MAKEINTRESOURCE(IDD_FILTER_ROUTE_DLG), parent);
+	}
+
+	virtual INT_PTR DlgProc(UINT msg, WPARAM wParam, LPARAM lParam);
+
+protected:
+
+	bool OnInit();
+	bool OnCommand(int cmd);
+	void OnDestroy();
+
+	void LoadFromConfig();
+	bool SaveToConfig();
+
+    bool DoBrowse(const char* filter, char *file, int size);
+
+protected:
+
+	RouteFilterConfig& m_Config;
+	RouteFilterConfig m_OldConfig;
+};
+
+INT_PTR RouteFilterDialog::DlgProc(UINT msg, WPARAM wParam, LPARAM lParam) {
+	switch(msg) {
+		case WM_INITDIALOG:
+			return !OnInit();
+
+		case WM_DESTROY:
+			OnDestroy();
+			break;
+
+		case WM_COMMAND:
+			if (OnCommand(LOWORD(wParam)))
+				return TRUE;
+			break;
+	}
+
+	return FALSE;
+}
+
+bool RouteFilterDialog::OnInit() 
+{
+	m_OldConfig = m_Config;
+
+	LoadFromConfig();
+
+	return false;
+}
+
+bool RouteFilterDialog::DoBrowse(const char* filter, char *file, int size)
+{
+	OPENFILENAME ofn; 
+
+    // Initialize OPENFILENAME
+	ZeroMemory(&ofn, sizeof(ofn));
+	ofn.lStructSize = sizeof(ofn);
+	ofn.hwndOwner = mhdlg;
+	ofn.lpstrFile = file;
+	ofn.nMaxFile = size;
+	ofn.lpstrFilter = filter;
+	ofn.nFilterIndex = 1;
+	ofn.lpstrFileTitle = NULL;
+	ofn.nMaxFileTitle = 0;
+	ofn.lpstrInitialDir = NULL;
+	ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
+
+	// Display the Open dialog box. 
+
+	return GetOpenFileName(&ofn)==TRUE; 
+}
+
+
+void RouteFilterDialog::OnDestroy() 
+{
+}
+
+bool RouteFilterDialog::OnCommand(int cmd) {
+	switch(cmd) {
+		case IDOK:
+			SaveToConfig();
+			EndDialog(mhdlg, true);
+			return true;
+
+		case IDCANCEL:
+			m_Config = m_OldConfig;
+			EndDialog(mhdlg, false);
+			return true;
+
+        case IDC_SAVE:
+            {
+                SaveToConfig();
+                pugi::xml_document doc;
+                m_Config.BuildXml(doc);
+                doc.save_file(m_Config.m_File);
+            }
+            return true;
+
+		case IDC_BROWSE:
+            if (DoBrowse("All\0*.*\0XML\0*.xml\0", m_Config.m_File, _countof(m_Config.m_File)))
+            {
+				SetDlgItemText(mhdlg, IDC_FILE, m_Config.m_File);
+                pugi::xml_document doc;
+                pugi::xml_parse_result res = doc.load_file(m_Config.m_File);
+                if (res)
+                {
+                    m_Config.FromXml(doc);
+                    LoadFromConfig();
+				}
+			}
+			return true;
+
+        case IDC_BROWSE_MAP:
+            if (DoBrowse("All\0*.*\0", m_Config.m_Map, _countof(m_Config.m_Map)))
+            {
+				SetDlgItemText(mhdlg, IDC_FILE_MAP, m_Config.m_Map);
+			}
+			return true;
+
+        case IDC_BROWSE_PATH:
+            if (DoBrowse("All\0*.*\0", m_Config.m_Path, _countof(m_Config.m_Path)))
+            {
+				SetDlgItemText(mhdlg, IDC_FILE_PATH, m_Config.m_Path);
+			}
+			return true;
+
+        case IDC_BROWSE_POINTER:
+            if (DoBrowse("All\0*.*\0", m_Config.m_Pointer, _countof(m_Config.m_Pointer)))
+            {
+				SetDlgItemText(mhdlg, IDC_FILE_POINTER, m_Config.m_Pointer);
+			}
+			return true;
+
+        case IDC_BROWSE_LOGO:
+            if (DoBrowse("All\0*.*\0", m_Config.m_Logo, _countof(m_Config.m_Logo)))
+            {
+				SetDlgItemText(mhdlg, IDC_FILE_LOGO, m_Config.m_Logo);
+			}
+			return true;
+}
+
+	return false;
+}
+
+void RouteFilterDialog::LoadFromConfig() 
+{
+	char    str[64];
+    SetDlgItemText(mhdlg, IDC_FILE, m_Config.m_File);
+	SetDlgItemText(mhdlg, IDC_FILE_MAP, m_Config.m_Map);
+	SetDlgItemText(mhdlg, IDC_FILE_LOGO, m_Config.m_Logo);
+    SetDlgItemText(mhdlg, IDC_FILE_PATH, m_Config.m_Path);
+    SetDlgItemText(mhdlg, IDC_FILE_POINTER, m_Config.m_Pointer);
+
+    sprintf(str, "%i", m_Config.m_PointerOpaque);
+    SetDlgItemText(mhdlg, IDC_POINTER_OP, str);
+    
+    sprintf(str, "%i", m_Config.m_PosX);
+    SetDlgItemText(mhdlg, IDC_POS_X, str);
+    sprintf(str, "%i", m_Config.m_PosY);
+    SetDlgItemText(mhdlg, IDC_POS_Y, str);
+    sprintf(str, "%i", m_Config.m_PosWidth);
+    SetDlgItemText(mhdlg, IDC_POS_W, str);
+    sprintf(str, "%i", m_Config.m_PosHeight);
+    SetDlgItemText(mhdlg, IDC_POS_H, str);
+    sprintf(str, "%i", m_Config.m_PosOpaque);
+    SetDlgItemText(mhdlg, IDC_POS_OP, str);
+    sprintf(str, "%i", m_Config.m_PosTail);
+    SetDlgItemText(mhdlg, IDC_POS_TAIL, str);
+    sprintf(str, "%X", m_Config.m_PosColor);
+    SetDlgItemText(mhdlg, IDC_POS_COLOR, str);
+
+    sprintf(str, "%i", m_Config.m_LegX);
+    SetDlgItemText(mhdlg, IDC_LEG_X, str);
+    sprintf(str, "%i", m_Config.m_LegY);
+    SetDlgItemText(mhdlg, IDC_LEG_Y, str);
+    sprintf(str, "%i", m_Config.m_LegWidth);
+    SetDlgItemText(mhdlg, IDC_LEG_W, str);
+    sprintf(str, "%i", m_Config.m_LegHeight);
+    SetDlgItemText(mhdlg, IDC_LEG_H, str);
+    sprintf(str, "%i", m_Config.m_LegOpaque);
+    SetDlgItemText(mhdlg, IDC_LEG_OP, str);
+    sprintf(str, "%i", m_Config.m_LegMargins);
+    SetDlgItemText(mhdlg, IDC_LEG_MARG, str);
+    sprintf(str, "%X", m_Config.m_LegColor);
+    SetDlgItemText(mhdlg, IDC_LEG_COLOR, str);
+
+    sprintf(str, "%i", m_Config.m_LogoX);
+    SetDlgItemText(mhdlg, IDC_LOGO_X, str);
+    sprintf(str, "%i", m_Config.m_LogoY);
+    SetDlgItemText(mhdlg, IDC_LOGO_Y, str);
+    sprintf(str, "%i", m_Config.m_LogoOpaque);
+    SetDlgItemText(mhdlg, IDC_LOGO_OP, str);
+
+    sprintf(str, "%i", m_Config.m_TextX);
+    SetDlgItemText(mhdlg, IDC_TEXT_X, str);
+    sprintf(str, "%i", m_Config.m_TextY);
+    SetDlgItemText(mhdlg, IDC_TEXT_Y, str);
+    sprintf(str, "%i", m_Config.m_TextWidth);
+    SetDlgItemText(mhdlg, IDC_TEXT_W, str);
+    sprintf(str, "%i", m_Config.m_TextHeight);
+    SetDlgItemText(mhdlg, IDC_TEXT_H, str);
+    sprintf(str, "%X", m_Config.m_TextColor);
+    SetDlgItemText(mhdlg, IDC_TEXT_COLOR, str);
+
+    sprintf(str, "%i", m_Config.m_TimeX);
+    SetDlgItemText(mhdlg, IDC_TIME_X, str);
+    sprintf(str, "%i", m_Config.m_TimeY);
+    SetDlgItemText(mhdlg, IDC_TIME_Y, str);
+    SetDlgItemText(mhdlg, IDC_TIME_FONT, m_Config.m_TimeFont);
+    sprintf(str, "%i", m_Config.m_TimeSize);
+    SetDlgItemText(mhdlg, IDC_TIME_SIZE, str);
+    sprintf(str, "%X", m_Config.m_TimeColor);
+    SetDlgItemText(mhdlg, IDC_TIME_COLOR, str);
+
+    sprintf(str, "%i", m_Config.m_PaceX);
+    SetDlgItemText(mhdlg, IDC_PACE_X, str);
+    sprintf(str, "%i", m_Config.m_PaceY);
+    SetDlgItemText(mhdlg, IDC_PACE_Y, str);
+    SetDlgItemText(mhdlg, IDC_PACE_FONT, m_Config.m_PaceFont);
+    sprintf(str, "%i", m_Config.m_PaceSize);
+    SetDlgItemText(mhdlg, IDC_PACE_SIZE, str);
+    sprintf(str, "%X", m_Config.m_PaceColor);
+    SetDlgItemText(mhdlg, IDC_PACE_COLOR, str);
+    sprintf(str, "%i", m_Config.m_PaceAvg);
+    SetDlgItemText(mhdlg, IDC_PACE_AVG, str);
+
+    sprintf(str, "%i", m_Config.m_PulseX);
+    SetDlgItemText(mhdlg, IDC_PULSE_X, str);
+    sprintf(str, "%i", m_Config.m_PulseY);
+    SetDlgItemText(mhdlg, IDC_PULSE_Y, str);
+    SetDlgItemText(mhdlg, IDC_PULSE_FONT, m_Config.m_PulseFont);
+    sprintf(str, "%i", m_Config.m_PulseSize);
+    SetDlgItemText(mhdlg, IDC_PULSE_SIZE, str);
+    sprintf(str, "%X", m_Config.m_PulseColor);
+    SetDlgItemText(mhdlg, IDC_PULSE_COLOR, str);
+
+    sprintf(str, "%i", m_Config.m_PathOffset);
+    SetDlgItemText(mhdlg, IDC_PATH_OFFSET, str);
+
+}
+
+bool RouteFilterDialog::SaveToConfig() 
+{
+	char    str[64];
+
+    GetDlgItemText(mhdlg, IDC_FILE, m_Config.m_File, _countof(m_Config.m_File));
+	GetDlgItemText(mhdlg, IDC_FILE_MAP, m_Config.m_Map, _countof(m_Config.m_Map));
+	GetDlgItemText(mhdlg, IDC_FILE_LOGO, m_Config.m_Logo, _countof(m_Config.m_Logo));
+    GetDlgItemText(mhdlg, IDC_FILE_PATH, m_Config.m_Path, _countof(m_Config.m_Path));
+    GetDlgItemText(mhdlg, IDC_FILE_POINTER, m_Config.m_Pointer, _countof(m_Config.m_Pointer));
+
+    GetDlgItemText(mhdlg, IDC_POINTER_OP, str, _countof(str));
+    sscanf(str, "%i", &m_Config.m_PointerOpaque);
+
+    GetDlgItemText(mhdlg, IDC_POS_X, str, _countof(str));
+    sscanf(str, "%i", &m_Config.m_PosX);
+    GetDlgItemText(mhdlg, IDC_POS_Y, str, _countof(str));
+    sscanf(str, "%i", &m_Config.m_PosY);
+    GetDlgItemText(mhdlg, IDC_POS_W, str, _countof(str));
+    sscanf(str, "%i", &m_Config.m_PosWidth);
+    GetDlgItemText(mhdlg, IDC_POS_H, str, _countof(str));
+    sscanf(str, "%i", &m_Config.m_PosHeight);
+    GetDlgItemText(mhdlg, IDC_POS_OP, str, _countof(str));
+    sscanf(str, "%i", &m_Config.m_PosOpaque);
+    GetDlgItemText(mhdlg, IDC_POS_TAIL, str, _countof(str));
+    sscanf(str, "%i", &m_Config.m_PosTail);
+    GetDlgItemText(mhdlg, IDC_POS_COLOR, str, _countof(str));
+    sscanf(str, "%X", &m_Config.m_PosColor);
+
+    GetDlgItemText(mhdlg, IDC_LEG_X, str, _countof(str));
+    sscanf(str, "%i", &m_Config.m_LegX);
+    GetDlgItemText(mhdlg, IDC_LEG_Y, str, _countof(str));
+    sscanf(str, "%i", &m_Config.m_LegY);
+    GetDlgItemText(mhdlg, IDC_LEG_W, str, _countof(str));
+    sscanf(str, "%i", &m_Config.m_LegWidth);
+    GetDlgItemText(mhdlg, IDC_LEG_H, str, _countof(str));
+    sscanf(str, "%i", &m_Config.m_LegHeight);
+    GetDlgItemText(mhdlg, IDC_LEG_OP, str, _countof(str));
+    sscanf(str, "%i", &m_Config.m_LegOpaque);
+    GetDlgItemText(mhdlg, IDC_LEG_MARG, str, _countof(str));
+    sscanf(str, "%i", &m_Config.m_LegMargins);
+    GetDlgItemText(mhdlg, IDC_LEG_COLOR, str, _countof(str));
+    sscanf(str, "%X", &m_Config.m_LegColor);
+
+    GetDlgItemText(mhdlg, IDC_LOGO_X, str, _countof(str));
+    sscanf(str, "%i", &m_Config.m_LogoX);
+    GetDlgItemText(mhdlg, IDC_LOGO_Y, str, _countof(str));
+    sscanf(str, "%i", &m_Config.m_LogoY);
+    GetDlgItemText(mhdlg, IDC_LOGO_OP, str, _countof(str));
+    sscanf(str, "%i", &m_Config.m_LogoOpaque);
+
+    GetDlgItemText(mhdlg, IDC_TEXT_X, str, _countof(str));
+    sscanf(str, "%i", &m_Config.m_TextX);
+    GetDlgItemText(mhdlg, IDC_TEXT_Y, str, _countof(str));
+    sscanf(str, "%i", &m_Config.m_TextY);
+    GetDlgItemText(mhdlg, IDC_TEXT_W, str, _countof(str));
+    sscanf(str, "%i", &m_Config.m_TextWidth);
+    GetDlgItemText(mhdlg, IDC_TEXT_H, str, _countof(str));
+    sscanf(str, "%i", &m_Config.m_TextHeight);
+    GetDlgItemText(mhdlg, IDC_TEXT_COLOR, str, _countof(str));
+    sscanf(str, "%X", &m_Config.m_TextColor);
+
+    GetDlgItemText(mhdlg, IDC_TIME_X, str, _countof(str));
+    sscanf(str, "%i", &m_Config.m_TimeX);
+    GetDlgItemText(mhdlg, IDC_TIME_Y, str, _countof(str));
+    sscanf(str, "%i", &m_Config.m_TimeY);
+    GetDlgItemText(mhdlg, IDC_TIME_FONT, m_Config.m_TimeFont, _countof(m_Config.m_TimeFont));
+    GetDlgItemText(mhdlg, IDC_TIME_SIZE, str, _countof(str));
+    sscanf(str, "%i", &m_Config.m_TimeSize);
+    GetDlgItemText(mhdlg, IDC_TIME_COLOR, str, _countof(str));
+    sscanf(str, "%X", &m_Config.m_TimeColor);
+
+    GetDlgItemText(mhdlg, IDC_PACE_X, str, _countof(str));
+    sscanf(str, "%i", &m_Config.m_PaceX);
+    GetDlgItemText(mhdlg, IDC_PACE_Y, str, _countof(str));
+    sscanf(str, "%i", &m_Config.m_PaceY);
+    GetDlgItemText(mhdlg, IDC_PACE_FONT, m_Config.m_PaceFont, _countof(m_Config.m_PaceFont));
+    GetDlgItemText(mhdlg, IDC_PACE_SIZE, str, _countof(str));
+    sscanf(str, "%i", &m_Config.m_PaceSize);
+    GetDlgItemText(mhdlg, IDC_PACE_COLOR, str, _countof(str));
+    sscanf(str, "%X", &m_Config.m_PaceColor);
+    GetDlgItemText(mhdlg, IDC_PACE_AVG, str, _countof(str));
+    sscanf(str, "%i", &m_Config.m_PaceAvg);
+
+    GetDlgItemText(mhdlg, IDC_PULSE_X, str, _countof(str));
+    sscanf(str, "%i", &m_Config.m_PulseX);
+    GetDlgItemText(mhdlg, IDC_PULSE_Y, str, _countof(str));
+    sscanf(str, "%i", &m_Config.m_PulseY);
+    GetDlgItemText(mhdlg, IDC_PULSE_FONT, m_Config.m_PulseFont, _countof(m_Config.m_PulseFont));
+    GetDlgItemText(mhdlg, IDC_PULSE_SIZE, str, _countof(str));
+    sscanf(str, "%i", &m_Config.m_PulseSize);
+    GetDlgItemText(mhdlg, IDC_PULSE_COLOR, str, _countof(str));
+    sscanf(str, "%X", &m_Config.m_PulseColor);
+
+    GetDlgItemText(mhdlg, IDC_PATH_OFFSET, str, _countof(str));
+    sscanf(str, "%i", &m_Config.m_PathOffset);
+
+    return true;
+}
+
+#pragma endregion ConfigDialog
+
+///////////////////////////////////////////////////////////////////////////////
+
+class RouteFilter : public VDXVideoFilter {
+public:
+    RouteFilter() 
+    {
+        ZeroVars();
+    }
+
+    RouteFilter::RouteFilter(const RouteFilter &f)
+    {
+        ZeroVars();
+        m_Config = f.m_Config;
+    }
+
+    virtual ~RouteFilter();
+
+	virtual uint32 GetParams();
+    virtual bool Init();
+	virtual void Start();
+	virtual void Run();
+	virtual void End();
+	virtual bool Configure(VDXHWND hwnd);
+	virtual void GetSettingString(char *buf, int maxlen);
+	virtual void GetScriptString(char *buf, int maxlen);
+
+	VDXVF_DECLARE_SCRIPT_METHODS();
+
+protected:
+
+    GDIToken    m_GDIToken;
+
+    virtual void ZeroVars();    //pointers only
+    virtual void DeleteVars();
+    virtual void CreateVars();  //from m_Config!
+
+    Bitmap *PrepareRGB32(void* data, uint32 pitch, uint32 w, uint32 h);
+	void DrawRoute(Bitmap *bmp, uint32 ms);
+    void ApplyRGB32(Bitmap *bmp, void* data, uint32 pitch, uint32 w, uint32 h);
+
+	void ScriptConfig(IVDXScriptInterpreter *isi, const VDXScriptValue *argv, int argc);
+
+	RouteFilterConfig	m_Config;
+
+    Bitmap             *m_pMap;
+
+    Bitmap             *m_pPointer;
+    Pen                *m_pPenTail;
+
+    Matrix             *m_pLegMatrix;
+    std::vector<PointF> m_LegPoints;
+    std::vector<double> m_LegTimes;
+    Pen                *m_pPenLeg;
+
+    Bitmap             *m_pLogo;
+
+    SolidBrush         *m_pTextBrush;
+
+    Font               *m_pTimeFont;
+    SolidBrush         *m_pTimeBrush;
+   	
+    Font               *m_pPaceFont;
+    SolidBrush         *m_pPaceBrush;
+
+    pugi::xml_document *m_pPathDoc;
+
+    pugi::xml_node      m_LastSample;
+    Bitmap             *m_pLastBmp;
+
+    int                 m_LegPosition;
+
+    bool                m_Initialized;
+};
+
+VDXVF_BEGIN_SCRIPT_METHODS(RouteFilter)
+VDXVF_DEFINE_SCRIPT_METHOD(RouteFilter, ScriptConfig, "s")
+VDXVF_END_SCRIPT_METHODS()
+
+void RouteFilter::ZeroVars()
+{
+    m_pLastBmp = NULL;
+    m_pPathDoc = NULL;
+    m_pMap = NULL; 
+    m_pLogo = NULL; 
+    m_pPointer = NULL;
+    m_pPenTail = NULL;
+    m_pPenLeg = NULL;
+    m_pTimeBrush = NULL; 
+    m_pTextBrush = NULL;
+    m_pTimeFont = NULL;
+    m_pPaceBrush = NULL; 
+    m_pPaceFont = NULL;
+    m_pLegMatrix = NULL;
+
+    m_Initialized = false;
+}
+
+void RouteFilter::DeleteVars()
+{
+    if (m_pLastBmp) delete m_pLastBmp;
+    if (m_pPathDoc) delete m_pPathDoc;
+    if (m_pMap) delete m_pMap;
+    if (m_pLogo) delete m_pLogo;
+    if (m_pPointer) delete m_pPointer;
+    if (m_pPenTail) delete m_pPenTail;
+    if (m_pPenLeg) delete m_pPenLeg;
+    if (m_pTimeBrush) delete m_pTimeBrush;
+    if (m_pTextBrush) delete m_pTextBrush;
+    if (m_pTimeFont) delete m_pTimeFont;
+    if (m_pPaceBrush) delete m_pPaceBrush;
+    if (m_pPaceFont) delete m_pPaceFont;
+    if (m_pLegMatrix) delete m_pLegMatrix;
+    ZeroVars();
+}
+
+uint32 RouteFilter::GetParams() {
+	if (g_VFVAPIVersion >= 12) {
+		switch(fa->src.mpPixmapLayout->format) {
+			case nsVDXPixmap::kPixFormat_XRGB8888:
+				break;
+
+			default:
+				return FILTERPARAM_NOT_SUPPORTED;
+		}
+	}
+
+	fa->dst.offset = fa->src.offset;
+	return FILTERPARAM_SUPPORTS_ALTFORMATS;
+}
+
+
+
+RouteFilter::~RouteFilter()
+{
+    DeleteVars();
+}
+
+bool RouteFilter::Init()
+{
+    bool ret = VDXVideoFilter::Init();
+
+    DeleteVars();
+
+    return ret;
+}
+
+#define CapsCharToVal(x) (*(x)>'9'?*(x)-'A'+10:*(x)-'0')
+#define CapsCharToVal2(x) (CapsCharToVal(x+1)|(CapsCharToVal(x)<<4))
+
+Color ColorFromStr(const char* str)
+{
+    if (str == NULL && *str == '0') return Color(0,0,0,0);
+    BYTE a = CapsCharToVal2(str);
+    BYTE r = CapsCharToVal2(str+2);
+    BYTE g = CapsCharToVal2(str+4);
+    BYTE b = CapsCharToVal2(str+6);
+    return Color(a,r,g,b);
+}
+
+void RouteFilter::CreateVars()
+{
+    if (m_Config.m_File[0] != 0)
+    {
+        m_pTimeFont = new Font(pugi::as_wide(m_Config.m_TimeFont).c_str(), m_Config.m_TimeSize);
+        m_pTimeBrush = new SolidBrush(m_Config.m_TimeColor); 
+        m_pTextBrush = new SolidBrush(m_Config.m_TextColor); 
+        m_pMap = Bitmap::FromFile(pugi::as_wide(m_Config.m_Map).c_str());
+        m_pLogo = Bitmap::FromFile(pugi::as_wide(m_Config.m_Logo).c_str());
+        m_pPointer = Bitmap::FromFile(pugi::as_wide(m_Config.m_Pointer).c_str());
+        m_pPenTail = new Pen(m_Config.m_PosColor, m_Config.m_PosSize);
+        m_pPenLeg = new Pen(m_Config.m_LegColor, m_Config.m_LegSize);
+        m_pPaceFont = new Font(pugi::as_wide(m_Config.m_PaceFont).c_str(), m_Config.m_PaceSize);
+        m_pPaceBrush = new SolidBrush(m_Config.m_PaceColor); 
+
+        //load path
+        m_pPathDoc = new pugi::xml_document();
+        pugi::xml_parse_result result = m_pPathDoc->load_file(m_Config.m_Path);
+        pugi::xml_node empty_node;
+        m_LastSample = empty_node;// m_pPathDoc->child("Route").child("Segment").first_child();
+    }
+    m_Initialized = 
+           m_pPathDoc != NULL && !m_pPathDoc->empty() 
+        && m_pTimeFont != NULL && m_pTimeFont->IsAvailable()
+        && m_pPaceFont != NULL && m_pPaceFont->IsAvailable()
+        && m_pTimeBrush != NULL && m_pTimeBrush->GetLastStatus() == Ok
+        && m_pTextBrush != NULL && m_pTextBrush->GetLastStatus() == Ok
+        && m_pPaceBrush != NULL && m_pPaceBrush->GetLastStatus() == Ok
+        && m_pMap != NULL && m_pMap->GetLastStatus() == Ok
+        && m_pLogo != NULL && m_pLogo->GetLastStatus() == Ok
+        && m_pPointer != NULL && m_pPointer->GetLastStatus() == Ok
+        && m_pPenTail != NULL && m_pPenTail->GetLastStatus() == Ok
+        && m_pPenLeg != NULL && m_pPenLeg->GetLastStatus() == Ok
+        ;
+    if (!m_Initialized) DeleteVars();
+}
+
+void RouteFilter::Start() 
+{
+    if (!m_Initialized)
+    {
+        CreateVars();
+    }
+}
+
+void RouteFilter::End()
+{
+    DeleteVars();
+}
+
+void RouteFilter::Run() 
+{
+    if (!m_Initialized) 
+        return;
+
+    if (g_VFVAPIVersion >= 12) 
+    {
+		const VDXPixmap& pxdst = *fa->dst.mpPixmap;
+		const VDXPixmap& pxsrc = *fa->src.mpPixmap;
+
+		switch(pxdst.format) {
+			case nsVDXPixmap::kPixFormat_XRGB8888:
+                Bitmap *pbmp = PrepareRGB32(pxdst.data, pxdst.pitch, pxdst.w, pxdst.h);
+                DrawRoute(pbmp, fa->pfsi->lSourceFrameMS);
+                ApplyRGB32(pbmp, pxdst.data, pxdst.pitch, pxdst.w, pxdst.h);
+                delete pbmp;
+				break;
+		}
+	} 
+    else 
+    {
+        Bitmap *pbmp = PrepareRGB32(fa->dst.data, fa->dst.pitch, fa->dst.w, fa->dst.h);
+        DrawRoute(pbmp, fa->pfsi->lSourceFrameMS);
+        ApplyRGB32(pbmp, fa->dst.data, fa->dst.pitch, fa->dst.w, fa->dst.h);
+        delete pbmp;
+	}
+}
+
+Bitmap* RouteFilter::PrepareRGB32(void *data, uint32 pitch, uint32 w, uint32 h)
+{
+    //create bitmap on frame!
+    Bitmap *pbmp = new Bitmap(w, h, pitch, PixelFormat32bppRGB, (BYTE*)data);
+    return pbmp;
+
+}
+
+void RouteFilter::ApplyRGB32(Bitmap *pbmp, void *data, uint32 pitch, uint32 w, uint32 h)
+{
+    //do nothing
+}
+
+bool RouteFilter::Configure(VDXHWND hwnd) 
+{
+    RouteFilterDialog dlg(m_Config, fa->ifp);
+
+	bool ret = dlg.Show((HWND)hwnd);
+
+    if (ret)
+    {
+        DeleteVars();
+        CreateVars();
+    }
+    return ret;
+}
+
+void RouteFilter::DrawRoute(Bitmap *pbmp, uint32 ms) 
+{
+    //calculate current run time
+    int32 time_run = ms - m_Config.m_PathOffset;
+    if (time_run < 0)
+    {
+        time_run = 0;
+    }
+
+    //find current sample by run time
+    pugi::xml_node current_sample = m_LastSample;
+    if (current_sample.empty())
+    {
+        //get first sample
+        current_sample = m_pPathDoc->child("Route").child("Segment").first_child();
+    }
+    //go forward
+    double elapsed_time = current_sample.attribute("elapsedTime").as_double();
+    while(time_run > elapsed_time*1000)
+    {
+        current_sample = current_sample.next_sibling();
+        if (current_sample.empty())
+        {
+            //end of path reached
+            current_sample = m_pPathDoc->child("Route").child("Segment").last_child();
+            break;
+        }
+        elapsed_time = current_sample.attribute("elapsedTime").as_double();
+    }
+    //go to previous sample
+    if (!current_sample.previous_sibling().empty())
+    {
+        current_sample = current_sample.previous_sibling();
+        elapsed_time = current_sample.attribute("elapsedTime").as_double();
+    }
+    //go backward
+    while(time_run < elapsed_time*1000)
+    {
+        current_sample = current_sample.previous_sibling();
+        if (current_sample.empty())
+        {
+            //begin of path reaches
+            current_sample = m_pPathDoc->child("Route").child("Segment").first_child();;
+            break;
+        }
+        elapsed_time = current_sample.attribute("elapsedTime").as_double();
+    }
+
+    //test if sample change
+    if (m_LastSample.empty() || m_LastSample != current_sample)
+    {
+        //create bitmap
+        if (m_pLastBmp)
+        {
+            delete m_pLastBmp;
+        }
+        m_pLastBmp = new Bitmap(pbmp->GetWidth(), pbmp->GetHeight(), PixelFormat32bppARGB);
+
+        //draw into bitmap
+        Graphics graphics(m_pLastBmp);
+        Color clear_color(0,0,0,0);
+        graphics.Clear(clear_color);
+
+        graphics.FillRectangle(m_pTextBrush, m_Config.m_TextX, m_Config.m_TextY, m_Config.m_TextWidth, m_Config.m_TextHeight);
+
+        //draw time text NOTE: samples must be each second!!! in other case time will be displayed with gaps
+        WCHAR wstr[256];
+        uint32 hour = (time_run/1000)/3600;
+        uint32 min = ((time_run/1000)%3600)/60;
+        uint32 sec = (time_run/1000)%60;
+        wsprintfW(wstr, L"%02i:%02i'%02i", hour, min, sec);
+        graphics.DrawString(wstr, wcslen(wstr), m_pTimeFont, PointF(m_Config.m_TextX + m_Config.m_TimeX, m_Config.m_TextY + m_Config.m_TimeY), m_pTimeBrush); 
+
+        //draw pace
+        int pace_m = current_sample.attribute("pace").as_int();
+        if (m_Config.m_PaceAvg > 1)  //NOTE: tail by samples, not by seconds
+        {
+            pugi::xml_node sample = current_sample.previous_sibling();
+            for(int i = 1; i < m_Config.m_PaceAvg; i++)
+            {
+                if (!sample.empty())
+                {
+                    pace_m += sample.attribute("pace").as_int();
+                    sample = sample.previous_sibling();
+                }
+                else
+                {
+                    pace_m += 30*60;
+                }
+            }
+            pace_m /= m_Config.m_PaceAvg;
+        }
+        if (pace_m > 30*60)
+        {
+            pace_m = 0;
+        }
+        int pace_s = pace_m%60;
+        pace_m /=60;
+        wsprintfW(wstr, L"%i'%02i", pace_m, pace_s); 
+        graphics.DrawString(wstr, wcslen(wstr), m_pPaceFont, PointF(m_Config.m_TextX + m_Config.m_PaceX, m_Config.m_TextY + m_Config.m_PaceY), m_pPaceBrush);
+
+        //draw logo
+        if (m_pLogo)
+        {
+            ImageAttributes ImgAttr;
+            ColorMatrix ClrMatrix = { 
+                    1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+                    0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
+                    0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
+                    0.0f, 0.0f, 0.0f, m_Config.m_LogoOpaque/(100.0f), 0.0f,
+                    0.0f, 0.0f, 0.0f, 0.0f, 1.0f
+            };
+            ImgAttr.SetColorMatrix(&ClrMatrix, ColorMatrixFlagsDefault, ColorAdjustTypeBitmap);
+            Rect    destination(m_Config.m_LogoX, m_Config.m_LogoY, m_pLogo->GetWidth(), m_pLogo->GetHeight());
+            graphics.DrawImage(m_pLogo, destination, 0, 0, m_pLogo->GetWidth(), m_pLogo->GetHeight(), UnitPixel, &ImgAttr);
+        }
+
+        int32 last_lap = m_LastSample.attribute("lapNumber").as_int();
+        int32 cur_lap = current_sample.attribute("lapNumber").as_int();
+
+        bool leg_position_found = false;
+
+        if (last_lap != cur_lap)
+        {
+            //rebuild leg data
+
+            //1. collect all image positions
+            m_LegPoints.clear();
+            m_LegTimes.clear();
+
+            pugi::xml_node sample = current_sample;
+            //find start of leg, remember leg position
+            m_LegPosition = 0;
+            leg_position_found = true;
+            while(!sample.previous_sibling().empty() && sample.previous_sibling().attribute("lapNumber").as_int() == cur_lap)
+            {
+                sample = sample.previous_sibling();
+                m_LegPosition++;
+            }
+            //add all leg points to array
+            while(!sample.empty() && sample.attribute("lapNumber").as_int() == cur_lap)
+            {
+                m_LegPoints.push_back(PointF(sample.attribute("imageX").as_int(), sample.attribute("imageY").as_int()));
+                m_LegTimes.push_back(sample.attribute("elapsedTime").as_double());
+                sample = sample.next_sibling();
+            }
+
+            //2. build matrix
+            int samples = m_LegPoints.size();
+            if (samples > 1)
+            {
+                PointF start(m_LegPoints[0].X, m_LegPoints[0].Y);
+                PointF end(m_LegPoints[samples-1].X, m_LegPoints[samples-1].Y);
+                PointF vector(end.X - start.X, end.Y - start.Y);
+            
+                PointF leg_center((end.X + start.X)/2, (end.Y + start.Y)/2);
+
+                double vector_size = sqrt(vector.X*vector.X+vector.Y*vector.Y);
+
+                if (fabs(vector.X) > 1 && fabs(vector.Y) > 1)
+                {
+                    double angle = atan2((double)(vector.Y), (double)(vector.X));
+                    double leg_direction = 90.0+180.0*(angle)/M_PI;
+
+                    if (m_pLegMatrix)
+                    {
+                        delete m_pLegMatrix;
+                    }
+                    m_pLegMatrix = new Matrix();
+                    m_pLegMatrix->RotateAt(-leg_direction, leg_center);
+                
+                    PointF view_center(m_Config.m_LegX + m_Config.m_LegWidth/2, m_Config.m_LegY + m_Config.m_LegHeight/2);
+                    //TODO: calc scale based on full leg
+                    double scale = (m_Config.m_LegHeight - m_Config.m_LegMargins*2)/vector_size;
+                    if (scale > 1) scale = 1;
+                    m_pLegMatrix->Scale(scale, scale, MatrixOrderAppend);
+                    m_pLegMatrix->Translate(view_center.X-leg_center.X*scale, view_center.Y-leg_center.Y*scale, MatrixOrderAppend);
+                    REAL t4[6];
+                    m_pLegMatrix->GetElements(t4);
+
+                    m_pLegMatrix->TransformPoints(m_LegPoints.data(), samples);
+
+                }
+            }
+        }
+
+        //draw leg
+        if (m_LegPoints.size() > 1)
+        {
+            GraphicsState state = graphics.Save();
+            
+            //TODO: set clip by region
+            Rect clip_rect(m_Config.m_LegX, m_Config.m_LegY, m_Config.m_LegWidth, m_Config.m_LegHeight);
+            graphics.SetClip(clip_rect);
+
+            REAL t1[6];
+            m_pLegMatrix->GetElements(t1);
+            graphics.SetTransform(m_pLegMatrix);
+
+            ColorMatrix ClrMatrix = { 
+                    1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+                    0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
+                    0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
+                    0.0f, 0.0f, 0.0f, m_Config.m_LegOpaque/(100.0f), 0.0f,
+                    0.0f, 0.0f, 0.0f, 0.0f, 1.0f
+            };
+            ImageAttributes ImgAttr;
+            ImgAttr.SetColorMatrix(&ClrMatrix, ColorMatrixFlagsDefault, ColorAdjustTypeBitmap);
+
+            Rect    destination(0, 0, m_pMap->GetWidth(), m_pMap->GetHeight());
+            graphics.DrawImage(m_pMap, destination, 0, 0, m_pMap->GetWidth(), m_pMap->GetHeight(), UnitPixel, &ImgAttr);
+
+            graphics.Restore(state);
+
+            if (!leg_position_found)
+            {
+                if (!m_LastSample.empty() && m_LastSample.next_sibling() == current_sample)
+                {
+                        m_LegPosition++;
+                }
+                else
+                {
+                    //find leg position
+                    m_LegPosition = 0;
+                    for(int i = 0; i < m_LegPoints.size() && m_LegTimes[i] < elapsed_time; i++, m_LegPosition++)
+                    {
+                        //TODO: binary search;
+                    }
+                }
+            }
+            graphics.DrawLines(m_pPenLeg, m_LegPoints.data(), m_LegPosition);
+        }
+
+        //draw current position
+        if (m_pMap && m_Config.m_PosWidth > 0 && m_Config.m_PosHeight > 0)
+        {
+            GraphicsState state = graphics.Save();
+
+            int32 image_x = current_sample.attribute("imageX").as_int();
+            int32 image_y = current_sample.attribute("imageY").as_int();
+            double head_direction = current_sample.attribute("direction").as_double();
+
+            //TODO: clip by region
+            Rect clip_rect(m_Config.m_PosX, m_Config.m_PosY, m_Config.m_PosWidth, m_Config.m_PosHeight);
+            graphics.SetClip(clip_rect);
+
+            Matrix rotate_at_map;
+            PointF center(m_Config.m_PosX + m_Config.m_PosWidth/2, m_Config.m_PosY + m_Config.m_PosHeight/2);
+            PointF image_pos(image_x, image_y);
+            rotate_at_map.RotateAt(-head_direction, image_pos);
+            rotate_at_map.Translate(center.X-image_x, center.Y-image_y, MatrixOrderAppend);
+            graphics.SetTransform(&rotate_at_map);
+
+            ColorMatrix ClrMatrix = { 
+                    1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+                    0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
+                    0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
+                    0.0f, 0.0f, 0.0f, m_Config.m_PosOpaque/(100.0f), 0.0f,
+                    0.0f, 0.0f, 0.0f, 0.0f, 1.0f
+            };
+            ImageAttributes ImgAttr;
+            ImgAttr.SetColorMatrix(&ClrMatrix, ColorMatrixFlagsDefault, ColorAdjustTypeBitmap);
+
+            Rect    destination(0, 0, m_pMap->GetWidth(), m_pMap->GetHeight());
+            graphics.DrawImage(m_pMap, destination, 0, 0, m_pMap->GetWidth(), m_pMap->GetHeight(), UnitPixel, &ImgAttr);
+
+            //draw tail
+            {
+                int tail = m_Config.m_PosTail;
+                int last_x = image_x;
+                int last_y = image_y;
+                pugi::xml_node sample = current_sample.previous_sibling();
+                while(tail-- > 0)
+                {
+                    if (sample.empty())
+                    {
+                        break;
+                    }
+                    int new_img_x = sample.attribute("imageX").as_int();
+                    int new_img_y = sample.attribute("imageY").as_int();
+                    graphics.DrawLine(m_pPenTail, last_x, last_y, new_img_x, new_img_y);
+                    last_x = new_img_x;
+                    last_y = new_img_y;
+                    sample = sample.previous_sibling();
+                }
+            }
+
+            graphics.Restore(state);
+
+            //draw pointer
+            {
+                ImageAttributes ImgAttr;
+                ColorMatrix ClrMatrix = { 
+                        1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+                        0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
+                        0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
+                        0.0f, 0.0f, 0.0f, m_Config.m_PointerOpaque/(100.0f), 0.0f,
+                        0.0f, 0.0f, 0.0f, 0.0f, 1.0f
+                };
+                ImgAttr.SetColorMatrix(&ClrMatrix, ColorMatrixFlagsDefault, ColorAdjustTypeBitmap);
+                Rect    destination(m_Config.m_PosX + m_Config.m_PosWidth/2 - m_pPointer->GetWidth()/2, m_Config.m_PosY + m_Config.m_PosHeight/2 - m_pPointer->GetHeight()/2, m_pPointer->GetWidth(), m_pPointer->GetHeight());
+                graphics.DrawImage(m_pPointer, destination, 0, 0, m_pPointer->GetWidth(), m_pPointer->GetHeight(), UnitPixel, &ImgAttr);
+            }
+        }
+        m_LastSample = current_sample;
+    }
+
+    //draw last bitmap
+    if (m_pLastBmp)
+    {
+        Graphics gr_to(pbmp);
+        gr_to.DrawImage(m_pLastBmp, 0, 0);
+    }
+
+    return;
+}
+
+void RouteFilter::ScriptConfig(IVDXScriptInterpreter *isi, const VDXScriptValue *argv, int argc) 
+{
+    std::string str(*argv[0].asString());
+    RouteFilterConfig cfg_new;
+    if (cfg_new.From_ConfigString(str.c_str()))
+    {
+        m_Config = cfg_new;
+    }
+    else
+    {
+        strcpy_s(cfg_new.m_File, 1024, *argv[0].asString());
+        pugi::xml_document doc;
+        if (doc.load_file(cfg_new.m_File) && cfg_new.FromXml(doc))
+        {
+            m_Config = cfg_new;
+        }
+    }
+}
+
+void RouteFilter::GetSettingString(char *buf, int maxlen) 
+{
+	SafePrintf(buf, maxlen, " (\"%s\")", m_Config.m_File);
+}
+
+void RouteFilter::GetScriptString(char *buf, int maxlen) 
+{
+    std::string str = m_Config.BuildConfigString();
+
+    if (str.size() < maxlen)
+    {
+        SafePrintf(buf, maxlen, "Config(\"%s\")", str.c_str());
+    }
+    else
+    {
+        char file_c[1024];
+	    int j = 0;
+	    for(int i = 0; i < sizeof(m_Config.m_File) && m_Config.m_File[i] != 0 && j < sizeof(file_c); i++, j++)
+	    {
+		    if (m_Config.m_File[i] == '\\')
+		    {
+			    file_c[j++] = '\\';
+		    }
+		    file_c[j] = m_Config.m_File[i]; 
+	    }
+	    file_c[j] = 0;
+
+	    SafePrintf(buf, maxlen, "Config(\"%s\")", file_c);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+extern VDXFilterDefinition filterDef_RouteAdd = VDXVideoFilterDefinition<RouteFilter>("Vorfol", "Route add", "Add route.");

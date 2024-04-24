@@ -1,0 +1,21 @@
+﻿Build started 27.06.2019 19:22:32.
+     1>Project "C:\rgmapvideo\VD_PluginSDK\src\VDXFrame\VDXFrame.vcxproj" on node 2 (Rebuild target(s)).
+     1>ClCompile:
+         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\CL.exe /c /Iinclude /I..\..\include /Zi /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _DEBUG /D _LIB /D WIN32_LEAN_AND_MEAN /D VC_EXTRALEAN /D NOMINMAX /D _MBCS /GF /Gm /EHsc /RTC1 /MTd /GS- /fp:precise /Zc:wchar_t /Zc:forScope /GR- /Yc"stdafx.h" /Fp"..\..\out\Debug\VDXFrame\VDXFrame.pch" /Fo"..\..\out\Debug\VDXFrame\\" /Fd"..\..\out\Debug\VDXFrame\vc120.pdb" /Gd /TP /analyze- /errorReport:prompt source\stdafx.cpp
+         stdafx.cpp
+         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\CL.exe /c /Iinclude /I..\..\include /Zi /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _DEBUG /D _LIB /D WIN32_LEAN_AND_MEAN /D VC_EXTRALEAN /D NOMINMAX /D _MBCS /GF /Gm /EHsc /RTC1 /MTd /GS- /fp:precise /Zc:wchar_t /Zc:forScope /GR- /Yu"stdafx.h" /Fp"..\..\out\Debug\VDXFrame\VDXFrame.pch" /Fo"..\..\out\Debug\VDXFrame\\" /Fd"..\..\out\Debug\VDXFrame\vc120.pdb" /Gd /TP /analyze- /errorReport:prompt source\VideoFilter.cpp source\VideoFilterDialog.cpp source\VideoFilterEntry.cpp
+         VideoFilterEntry.cpp
+         VideoFilterDialog.cpp
+         VideoFilter.cpp
+         Generating Code...
+       Lib:
+         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\Lib.exe /OUT:"..\..\out\Debug\VDXFrame.lib" /NOLOGO ..\..\out\Debug\VDXFrame\VideoFilter.obj
+         ..\..\out\Debug\VDXFrame\VideoFilterDialog.obj
+         ..\..\out\Debug\VDXFrame\VideoFilterEntry.obj
+         ..\..\out\Debug\VDXFrame\stdafx.obj
+         VDXFrame.vcxproj -> C:\rgmapvideo\VD_PluginSDK\src\VDXFrame\..\..\out\Debug\VDXFrame.lib
+     1>Done Building Project "C:\rgmapvideo\VD_PluginSDK\src\VDXFrame\VDXFrame.vcxproj" (Rebuild target(s)).
+
+Build succeeded.
+
+Time Elapsed 00:00:00.64

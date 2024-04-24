@@ -1,0 +1,198 @@
+// Microsoft Visual C++ generated resource script.
+//
+#include "resource.h"
+
+#define APSTUDIO_READONLY_SYMBOLS
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 2 resource.
+//
+#include "winresrc.h"
+#ifndef IDC_STATIC
+#undef IDC_STATIC
+#endif
+#define IDC_STATIC (-1)
+
+/////////////////////////////////////////////////////////////////////////////
+#undef APSTUDIO_READONLY_SYMBOLS
+
+/////////////////////////////////////////////////////////////////////////////
+// Russian (Russia) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_RUS)
+LANGUAGE LANG_RUSSIAN, SUBLANG_DEFAULT
+#pragma code_page(1251)
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
+IDD_FILTER_ROUTE_DLG DIALOGEX 0, 0, 328, 317
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Route add"
+FONT 8, "Courier New", 400, 0, 0xCC
+BEGIN
+    DEFPUSHBUTTON   "ОК",IDOK,201,296,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,271,296,50,14
+    LTEXT           "Settings",IDC_STATIC,7,9,33,8
+    EDITTEXT        IDC_FILE,47,7,169,14,ES_AUTOHSCROLL
+    PUSHBUTTON      "Open",IDC_BROWSE,217,7,50,14
+    PUSHBUTTON      "Save",IDC_SAVE,271,7,50,14
+    EDITTEXT        IDC_FILE_MAP,47,25,217,14,ES_AUTOHSCROLL
+    EDITTEXT        IDC_FILE_LOGO,47,40,217,14,ES_AUTOHSCROLL
+    EDITTEXT        IDC_FILE_PATH,47,54,217,14,ES_AUTOHSCROLL
+    EDITTEXT        IDC_FILE_POINTER,47,69,217,14,ES_AUTOHSCROLL
+    PUSHBUTTON      "Browse",IDC_BROWSE_MAP,271,24,50,14
+    PUSHBUTTON      "Browse",IDC_BROWSE_LOGO,271,38,50,14
+    PUSHBUTTON      "Browse",IDC_BROWSE_PATH,271,53,50,14
+    PUSHBUTTON      "Browse",IDC_BROWSE_POINTER,271,68,50,14
+    LTEXT           "Map",IDC_STATIC,7,28,22,8
+    LTEXT           "Logo",IDC_STATIC,7,41,17,8
+    LTEXT           "GPX",IDC_STATIC,7,55,18,8
+    LTEXT           "Pointer",IDC_STATIC,7,69,29,8
+    EDITTEXT        IDC_POS_X,47,112,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_POS_Y,77,112,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_POS_W,107,112,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_POS_H,137,112,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_POS_OP,209,112,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_POS_TAIL,294,113,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    LTEXT           "Position",IDC_STATIC,7,113,33,8
+    LTEXT           "X",IDC_STATIC,47,101,8,8
+    LTEXT           "Y",IDC_STATIC,77,101,8,8
+    LTEXT           "W",IDC_STATIC,107,101,8,8
+    LTEXT           "H",IDC_STATIC,137,101,8,8
+    LTEXT           "Видимость",IDC_STATIC,205,101,39,8
+    LTEXT           "Tail",IDC_STATIC,273,116,20,8
+    EDITTEXT        IDC_LEG_X,47,128,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_LEG_Y,77,128,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_LEG_W,107,128,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_LEG_H,137,128,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_LEG_OP,209,128,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_LEG_MARG,294,129,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    LTEXT           "Lap",IDC_STATIC,7,129,13,8
+    LTEXT           "Margins",IDC_STATIC,262,132,29,8
+    EDITTEXT        IDC_LOGO_X,47,145,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_LOGO_Y,77,145,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_LOGO_OP,209,145,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    LTEXT           "Logo",IDC_STATIC,7,145,17,8
+    EDITTEXT        IDC_TEXT_X,47,161,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_TEXT_Y,77,161,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_TEXT_W,107,161,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_TEXT_H,137,161,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_TEXT_COLOR,167,161,40,14,ES_AUTOHSCROLL
+    LTEXT           "Text",IDC_STATIC,7,161,20,8
+    LTEXT           "Цвет",IDC_STATIC,180,101,20,8
+    EDITTEXT        IDC_TIME_X,47,187,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_TIME_Y,77,187,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_TIME_FONT,238,187,63,14,ES_AUTOHSCROLL
+    EDITTEXT        IDC_TIME_COLOR,167,187,40,14,ES_AUTOHSCROLL
+    LTEXT           "Time",IDC_STATIC,7,187,17,8
+    LTEXT           "Font",IDC_STATIC,239,177,24,8
+    EDITTEXT        IDC_TIME_SIZE,209,187,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    LTEXT           "Size",IDC_STATIC,210,176,26,8
+    EDITTEXT        IDC_PACE_X,47,202,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_PACE_Y,77,202,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_PACE_FONT,238,202,63,14,ES_AUTOHSCROLL
+    EDITTEXT        IDC_PACE_COLOR,167,202,40,14,ES_AUTOHSCROLL
+    LTEXT           "Pace",IDC_STATIC,7,202,17,8
+    EDITTEXT        IDC_PACE_SIZE,209,202,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_PACE_AVG,127,203,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    LTEXT           "Avg.",IDC_STATIC,110,205,14,8
+    EDITTEXT        IDC_POS_COLOR,167,112,40,14,ES_AUTOHSCROLL
+    EDITTEXT        IDC_PULSE_X,47,217,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_PULSE_Y,77,217,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_PULSE_FONT,238,217,63,14,ES_AUTOHSCROLL
+    EDITTEXT        IDC_PULSE_COLOR,167,217,40,14,ES_AUTOHSCROLL
+    LTEXT           "HR",IDC_STATIC,7,217,9,8
+    EDITTEXT        IDC_PULSE_SIZE,209,217,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_PATH_OFFSET,47,84,64,14,ES_AUTOHSCROLL
+    LTEXT           "Start",IDC_STATIC,7,86,22,8
+    EDITTEXT        IDC_LEG_COLOR,167,128,40,14,ES_AUTOHSCROLL
+    LTEXT           "Pointer visibility",IDC_STATIC,133,87,73,8
+    EDITTEXT        IDC_POINTER_OP,208,85,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_COMM_X,47,234,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_COMM_Y,77,234,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_COMM_FONT,238,234,63,14,ES_AUTOHSCROLL
+    EDITTEXT        IDC_COMM_COLOR,167,234,40,14,ES_AUTOHSCROLL
+    LTEXT           "Comment",IDC_STATIC,7,234,29,8
+    EDITTEXT        IDC_COMM_SIZE,209,234,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_COMM_W,107,234,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_COMM_H,137,234,27,14,ES_AUTOHSCROLL | ES_NUMBER
+    EDITTEXT        IDC_COMMENTS,7,251,314,44,ES_MULTILINE | ES_AUTOVSCROLL | ES_AUTOHSCROLL | ES_WANTRETURN | NOT WS_VISIBLE
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// DESIGNINFO
+//
+
+#ifdef APSTUDIO_INVOKED
+GUIDELINES DESIGNINFO
+BEGIN
+    IDD_FILTER_ROUTE_DLG, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 321
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 310
+    END
+END
+#endif    // APSTUDIO_INVOKED
+
+#endif    // Russian (Russia) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+/////////////////////////////////////////////////////////////////////////////
+// English (United States) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+#pragma code_page(1252)
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE 
+BEGIN
+    "resource.h\0"
+END
+
+2 TEXTINCLUDE 
+BEGIN
+    "#include ""winresrc.h""\r\n"
+    "#ifndef IDC_STATIC\r\n"
+    "#undef IDC_STATIC\r\n"
+    "#endif\r\n"
+    "#define IDC_STATIC (-1)\r\n"
+    "\0"
+END
+
+3 TEXTINCLUDE 
+BEGIN
+    "\r\n"
+    "\0"
+END
+
+#endif    // APSTUDIO_INVOKED
+
+#endif    // English (United States) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+
+#ifndef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 3 resource.
+//
+
+
+/////////////////////////////////////////////////////////////////////////////
+#endif    // not APSTUDIO_INVOKED
+

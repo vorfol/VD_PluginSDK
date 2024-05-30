@@ -24,10 +24,10 @@
     <ClCompile Include="source\f_route.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\..\WRK\pugixml-1.8\src\pugixml.cpp">
+    <ClCompile Include="b64.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="b64.cpp">
+    <ClCompile Include="source\pugixml.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -41,10 +41,10 @@
     <ClInclude Include="..\..\include\vd2\plugin\vdvideofilt.h">
       <Filter>Video Filter API Headers</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\..\WRK\pugixml-1.8\src\pugiconfig.hpp">
+    <ClInclude Include="source\pugiconfig.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\..\WRK\pugixml-1.8\src\pugixml.hpp">
+    <ClInclude Include="source\pugixml.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -1065,7 +1065,7 @@ protected:
 	pugi::xml_document *m_pPathDoc;
 
     pugi::xml_node      m_LastSample;
-    Bitmap             *m_pLastBmp;
+    //Bitmap             *m_pLastBmp;
 
     int                 m_LegPosition;
 
@@ -1078,7 +1078,7 @@ VDXVF_END_SCRIPT_METHODS()
 
 void RouteFilter::ZeroVars()
 {
-    m_pLastBmp = NULL;
+    //m_pLastBmp = NULL;
     m_pPathDoc = NULL;
     m_pMap = NULL; 
     m_pLogo = NULL; 
@@ -1101,7 +1101,7 @@ void RouteFilter::ZeroVars()
 
 void RouteFilter::DeleteVars()
 {
-    delete m_pLastBmp;
+    //delete m_pLastBmp;
     delete m_pPathDoc;
     delete m_pMap;
     delete m_pLogo;
@@ -1327,18 +1327,20 @@ void RouteFilter::DrawRoute(Bitmap *pbmp, uint32 ms)
     }
 
     //test if sample change
-    if (m_LastSample.empty() || m_LastSample != current_sample)
+    //if (m_LastSample.empty() || m_LastSample != current_sample)
     {
         //create bitmap
-        delete m_pLastBmp;
-        m_pLastBmp = new Bitmap(pbmp->GetWidth(), pbmp->GetHeight(), PixelFormat32bppARGB);
+        // delete m_pLastBmp;
+        // m_pLastBmp = new Bitmap(pbmp->GetWidth(), pbmp->GetHeight(), PixelFormat32bppARGB);
 
         //draw into bitmap
-        Graphics graphics(m_pLastBmp);
-        Color clear_color(0,0,0,0);
-        graphics.Clear(clear_color);
+        //Graphics graphics(m_pLastBmp);
+        Graphics graphics(pbmp);
+        Gdiplus::Status  status = Gdiplus::Status::Ok;
+        //Color clear_color(0,0,0,0);
+        //graphics.Clear(clear_color);
 
-        graphics.FillRectangle(m_pTextBrush, m_Config.m_TextX, m_Config.m_TextY, m_Config.m_TextWidth, m_Config.m_TextHeight);
+        //graphics.FillRectangle(m_pTextBrush, m_Config.m_TextX, m_Config.m_TextY, m_Config.m_TextWidth, m_Config.m_TextHeight);
 
         //draw time text NOTE: samples must be each second!!! in other case time will be displayed with gaps
         WCHAR wstr[256];
@@ -1414,7 +1416,14 @@ void RouteFilter::DrawRoute(Bitmap *pbmp, uint32 ms)
             };
             ImgAttr.SetColorMatrix(&ClrMatrix, ColorMatrixFlagsDefault, ColorAdjustTypeBitmap);
             Rect    destination(m_Config.m_LogoX, m_Config.m_LogoY, m_pLogo->GetWidth(), m_pLogo->GetHeight());
-            graphics.DrawImage(m_pLogo, destination, 0, 0, m_pLogo->GetWidth(), m_pLogo->GetHeight(), UnitPixel, &ImgAttr);
+            status = graphics.DrawImage(m_pLogo, destination, 0, 0, m_pLogo->GetWidth(), m_pLogo->GetHeight(), UnitPixel, &ImgAttr);
+            if (status != Gdiplus::Status::Ok) {
+                // TODO: show message
+                FILE* pFile = fopen("log.txt", "a");
+                fprintf(pFile, "Status 1 %i\n", status);
+                fclose(pFile);
+                return;
+            }
         }
 
         int32 last_lap = m_LastSample.attribute("lapNumber").as_int();
@@ -1544,7 +1553,14 @@ void RouteFilter::DrawRoute(Bitmap *pbmp, uint32 ms)
             ImgAttr.SetColorMatrix(&ClrMatrix, ColorMatrixFlagsDefault, ColorAdjustTypeBitmap);
 
             Rect    destination(0, 0, m_pMap->GetWidth(), m_pMap->GetHeight());
-            graphics.DrawImage(m_pMap, destination, 0, 0, m_pMap->GetWidth(), m_pMap->GetHeight(), UnitPixel, &ImgAttr);
+            status = graphics.DrawImage(m_pMap, destination, 0, 0, m_pMap->GetWidth(), m_pMap->GetHeight(), UnitPixel, &ImgAttr);
+            if (status != Gdiplus::Status::Ok) {
+                // TODO: show message
+                FILE* pFile = fopen("log.txt", "a");
+                fprintf(pFile, "Status 2 %i\n", status);
+                fclose(pFile);
+                return;
+            }
 
             graphics.Restore(state);
 
@@ -1564,7 +1580,16 @@ void RouteFilter::DrawRoute(Bitmap *pbmp, uint32 ms)
                     }
                 }
             }
-            graphics.DrawLines(m_pPenLeg, m_LegPoints.data(), m_LegPosition);
+            if (m_LegPosition > 1) {
+                status = graphics.DrawLines(m_pPenLeg, m_LegPoints.data(), m_LegPosition);
+                if (status != Gdiplus::Status::Ok) {
+                    // TODO: show message
+                    FILE* pFile = fopen("log.txt", "a");
+                    fprintf(pFile, "Status 3 %i, size %i, pos %i\n", status, m_LegPoints.size(), m_LegPosition);
+                    fclose(pFile);
+                    return;
+                }
+            }
         }
 
         //draw current position
@@ -1598,7 +1623,14 @@ void RouteFilter::DrawRoute(Bitmap *pbmp, uint32 ms)
             ImgAttr.SetColorMatrix(&ClrMatrix, ColorMatrixFlagsDefault, ColorAdjustTypeBitmap);
 
             Rect    destination(0, 0, m_pMap->GetWidth(), m_pMap->GetHeight());
-            graphics.DrawImage(m_pMap, destination, 0, 0, m_pMap->GetWidth(), m_pMap->GetHeight(), UnitPixel, &ImgAttr);
+            status = graphics.DrawImage(m_pMap, destination, 0, 0, m_pMap->GetWidth(), m_pMap->GetHeight(), UnitPixel, &ImgAttr);
+            if (status != Status::Ok) {
+                // TODO: show message
+                FILE* pFile = fopen("log.txt", "a");
+                fprintf(pFile, "Status 4 %i\n", status);
+                fclose(pFile);
+                return;
+            }
 
             //draw tail
             {
@@ -1635,18 +1667,25 @@ void RouteFilter::DrawRoute(Bitmap *pbmp, uint32 ms)
                 };
                 ImgAttr.SetColorMatrix(&ClrMatrix, ColorMatrixFlagsDefault, ColorAdjustTypeBitmap);
                 Rect    destination(m_Config.m_PosX + m_Config.m_PosWidth/2 - m_pPointer->GetWidth()/2, m_Config.m_PosY + m_Config.m_PosHeight/2 - m_pPointer->GetHeight()/2, m_pPointer->GetWidth(), m_pPointer->GetHeight());
-                graphics.DrawImage(m_pPointer, destination, 0, 0, m_pPointer->GetWidth(), m_pPointer->GetHeight(), UnitPixel, &ImgAttr);
+                status = graphics.DrawImage(m_pPointer, destination, 0, 0, m_pPointer->GetWidth(), m_pPointer->GetHeight(), UnitPixel, &ImgAttr);
+                if (status != Status::Ok) {
+                    // TODO: show message
+                    FILE* pFile = fopen("log.txt", "a");
+                    fprintf(pFile, "Status 5 %i\n", status);
+                    fclose(pFile);
+                    return;
+                }
             }
         }
         m_LastSample = current_sample;
     }
 
     //draw last bitmap
-    if (m_pLastBmp)
-    {
-        Graphics gr_to(pbmp);
-        gr_to.DrawImage(m_pLastBmp, 0, 0);
-    }
+    //if (m_pLastBmp)
+    //{
+    //    Graphics gr_to(pbmp);
+    //    gr_to.DrawImage(m_pLastBmp, 0, 0);
+    //}
 
     return;
 }

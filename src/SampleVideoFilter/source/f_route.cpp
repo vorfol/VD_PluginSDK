@@ -1065,7 +1065,7 @@ protected:
 	pugi::xml_document *m_pPathDoc;
 
     pugi::xml_node      m_LastSample;
-    //Bitmap             *m_pLastBmp;
+    Bitmap             *m_pLastBmp;
 
     int                 m_LegPosition;
 
@@ -1078,7 +1078,7 @@ VDXVF_END_SCRIPT_METHODS()
 
 void RouteFilter::ZeroVars()
 {
-    //m_pLastBmp = NULL;
+    m_pLastBmp = NULL;
     m_pPathDoc = NULL;
     m_pMap = NULL; 
     m_pLogo = NULL; 
@@ -1101,7 +1101,7 @@ void RouteFilter::ZeroVars()
 
 void RouteFilter::DeleteVars()
 {
-    //delete m_pLastBmp;
+    delete m_pLastBmp;
     delete m_pPathDoc;
     delete m_pMap;
     delete m_pLogo;
@@ -1327,20 +1327,24 @@ void RouteFilter::DrawRoute(Bitmap *pbmp, uint32 ms)
     }
 
     //test if sample change
-    //if (m_LastSample.empty() || m_LastSample != current_sample)
+    if (m_LastSample.empty() || m_LastSample != current_sample)
     {
         //create bitmap
-        // delete m_pLastBmp;
-        // m_pLastBmp = new Bitmap(pbmp->GetWidth(), pbmp->GetHeight(), PixelFormat32bppARGB);
+        if (m_pLastBmp && (m_pLastBmp->GetWidth() != pbmp->GetWidth() || m_pLastBmp->GetHeight() != pbmp->GetHeight())) {
+            delete m_pLastBmp;
+            m_pLastBmp = nullptr;
+        }
+        if (!m_pLastBmp)
+            m_pLastBmp = new Bitmap(pbmp->GetWidth(), pbmp->GetHeight(), PixelFormat32bppARGB);
+
+        Gdiplus::Status status;
 
         //draw into bitmap
-        //Graphics graphics(m_pLastBmp);
-        Graphics graphics(pbmp);
-        Gdiplus::Status  status = Gdiplus::Status::Ok;
-        //Color clear_color(0,0,0,0);
-        //graphics.Clear(clear_color);
+        Gdiplus::Graphics graphics(m_pLastBmp);
+        Color clear_color(0,0,0,0);
+        graphics.Clear(clear_color);
 
-        //graphics.FillRectangle(m_pTextBrush, m_Config.m_TextX, m_Config.m_TextY, m_Config.m_TextWidth, m_Config.m_TextHeight);
+        graphics.FillRectangle(m_pTextBrush, m_Config.m_TextX, m_Config.m_TextY, m_Config.m_TextWidth, m_Config.m_TextHeight);
 
         //draw time text NOTE: samples must be each second!!! in other case time will be displayed with gaps
         WCHAR wstr[256];
@@ -1530,7 +1534,7 @@ void RouteFilter::DrawRoute(Bitmap *pbmp, uint32 ms)
         }
 
         //draw leg
-        if (m_pMap && m_LegPoints.size() > 1)
+        if (m_pMap && m_LegPoints.size() > 1 && m_Config.m_LegOpaque > 0)
         {
             GraphicsState state = graphics.Save();
             
@@ -1593,7 +1597,7 @@ void RouteFilter::DrawRoute(Bitmap *pbmp, uint32 ms)
         }
 
         //draw current position
-        if (m_pMap && m_Config.m_PosWidth > 0 && m_Config.m_PosHeight > 0)
+        if (m_pMap && m_Config.m_PosWidth > 0 && m_Config.m_PosHeight > 0 && m_Config.m_PosOpaque > 0)
         {
             GraphicsState state = graphics.Save();
 
@@ -1681,11 +1685,11 @@ void RouteFilter::DrawRoute(Bitmap *pbmp, uint32 ms)
     }
 
     //draw last bitmap
-    //if (m_pLastBmp)
-    //{
-    //    Graphics gr_to(pbmp);
-    //    gr_to.DrawImage(m_pLastBmp, 0, 0);
-    //}
+    if (m_pLastBmp)
+    {
+        Gdiplus::Graphics gr_to(pbmp);
+        gr_to.DrawImage(m_pLastBmp, 0, 0);
+    }
 
     return;
 }

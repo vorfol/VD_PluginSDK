@@ -29,7 +29,14 @@ extern int g_VFVAPIVersion;
 ///////////////////////////////////////////////////////////////////////////////
 #pragma region RouteFilterConfig
 
-enum Alignment {
+enum PaneType {
+    Image,
+    Leg,
+    Pos,
+    Text
+};
+
+enum TextAlignment {
     Center,
     Left,
     Right
@@ -44,14 +51,15 @@ enum TextType {
 
 struct RoutePane {
 public:
+    PaneType    Type;
     std::string Name;
     int         X;
     int         Y;
     int         W;
     int         H;
     int         Opaque;     // 0-100
-    int         Start;      // in seconds
-    int         End;        // in seconds, 0 means to the end
+    time_t      Start;      // GMT
+    time_t      End;        // GMT
 };
 
 
@@ -61,8 +69,8 @@ public:
     Gdiplus::Color  FontColor;
     int             FontSize;
     std::string     FontName;
-    Alignment       Align;
-    TextType        Type;
+    TextAlignment   Align;
+    TextType        TextType;
     std::string     Value;  // Text for comment type, XML path for other types
 };
 
@@ -74,19 +82,16 @@ public:
 struct LegPane : public ImagePane {
 public:
     std::string     Path;       // name
-    int             Widht;
+    int             TailWidth;
     int             Margins;
-    Gdiplus::Color  Color;
+    Gdiplus::Color  TailColor;
 };
 
-struct PosPane : public ImagePane {
+struct PosPane : public LegPane {
 public:
-    std::string     Path;           // name
     std::string     Pointer;        // name
     int             PointerOpaque;  // 0-100
-    int             Tail;
-    int             TailWidht;
-    Gdiplus::Color  TailColor;
+    time_t          Tail;
 };
 
 class RouteFilterConfig 
@@ -99,20 +104,19 @@ public:
 
 public:
 
-	std::string		m_File;       //save/load config - do not stored in config string
+	std::string		                    m_File;         //save/load config - do not stored in config string
 
-	std::map<std::string, std::string>  m_Images;   // [name] = image path
+	std::map<std::string, std::string>  m_Images;       // [name] = image path
 	
-    std::map<std::string, std::string>  m_Paths;    // [name] = xml path
+    std::map<std::string, std::string>  m_Paths;        // [name] = xml path
 
-    std::map<std::string, RoutePane*>   m_Panes;    // [name] = pane
+    std::map<std::string, RoutePane*>   m_Panes;        // [name] = pane
 
-    struct tm       m_VideoStart;   // start of the video in GMT
+    time_t                              m_VideoStart;   // start of the video in GMT
 
 };
 
-std::istream& operator >> (std::istream& i, Gdiplus::Color& c)
-{
+std::istream& operator >> (std::istream& i, Gdiplus::Color& c) {
 	unsigned long v;
 	i >> std::hex >> v;
 	c.SetValue(v);
@@ -120,22 +124,7 @@ std::istream& operator >> (std::istream& i, Gdiplus::Color& c)
 }
 
 template<class T>
-std::string stringFrom(const T& t)
-{
-	std::ostringstream o;
-	o << t;
-	return o.str();
-}
-
-template<>
-std::string stringFrom<std::string>(const std::string& t)
-{
-	return t;
-}
-
-template<class T>
-T fromString(const std::string& s)
-{
+T fromString(const std::string& s) {
 	T t;
 	std::istringstream i(s);
 	i >> t;
@@ -143,21 +132,232 @@ T fromString(const std::string& s)
 }
 
 template<>
-std::string fromString(const std::string& s)
-{
+std::string fromString(const std::string& s) {
 	return s;
 }
 
 template<>
-struct tm fromString(const std::string& s)
-{
+time_t fromString(const std::string& s) {
+    time_t ret = 0;
     struct tm T;
     memset(&T, 0, sizeof(T));
-    // "2024-06-01T10:00:40Z"
-    sscanf(s.c_str(), "%d-%d-%dT%d:%dZ", &T.tm_year, &T.tm_mon, &T.tm_mday, &T.tm_hour, &T.tm_min, &T.tm_sec);
-    T.tm_year -= 1900;
-    T.tm_mon -= 1;
-	return T;
+    // GMT:
+    //      "YYYY-MM-DDThh:mm:ssZ"
+    if (6 == sscanf(s.c_str(), "%d-%d-%dT%d:%d:%dZ", 
+            &T.tm_year,
+            &T.tm_mon,
+            &T.tm_mday,
+            &T.tm_hour,
+            &T.tm_min,
+            &T.tm_sec))
+    {
+        T.tm_year -= 1900;
+        T.tm_mon -= 1;
+        ret = mktime(&T);
+        if (ret == -1) {
+            ret = 0;
+        }
+    } else {
+    // Duration:
+    //      "mm:ss" 
+    //      "hh:mm:ss"
+        switch (sscanf(s.c_str(), "%d:%dZ", &T.tm_hour, &T.tm_min, &T.tm_sec)) {
+            default:
+                ret = 0;
+                break;
+            case 3:
+                ret -= T.tm_hour * 3600;
+                // fall
+            case 2:
+                ret -= T.tm_min * 60;
+                // fall
+            case 1: 
+                ret -= T.tm_sec;
+                break;
+        }
+    }
+    return ret;
+}
+
+#define CapsCharToVal(x) (*(x)>'9'?*(x)-'A'+10:*(x)-'0')
+#define CapsCharToVal2(x) (CapsCharToVal(x+1)|(CapsCharToVal(x)<<4))
+
+Gdiplus::Color ColorFromStr(const char* str) {
+    if (str == NULL || *str == '0') return Gdiplus::Color(0,0,0,0);
+    BYTE a = CapsCharToVal2(str);
+    BYTE r = CapsCharToVal2(str+2);
+    BYTE g = CapsCharToVal2(str+4);
+    BYTE b = CapsCharToVal2(str+6);
+    return Gdiplus::Color(a,r,g,b);
+}
+
+template<>
+Gdiplus::Color fromString(const std::string& s) {
+    return ColorFromStr(s.c_str());
+}
+
+RoutePane* FillPane(RoutePane *pPane, pugi::xml_node &node) {
+    if (pPane != nullptr) {
+        pPane->Name = node.attribute("name").as_string();
+        pPane->X = node.attribute("x").as_int();
+        pPane->Y = node.attribute("y").as_int();
+        pPane->W = node.attribute("w").as_int();
+        pPane->H = node.attribute("h").as_int();
+        pPane->Opaque = 100;
+        if (!node.attribute("opaq").empty()) {
+            pPane->Opaque = node.attribute("opaq").as_int();
+        }
+        pPane->Start = -1;
+        pugi::xml_node start_node = node.child("Start");
+        if (!start_node.empty()) {
+            pPane->Start = fromString<time_t>(start_node.child_value());
+        }
+        pPane->End = -1;
+        pugi::xml_node end_node = node.child("End");
+        if (!end_node.empty()) {
+            pPane->End = fromString<time_t>(end_node.child_value());
+        }
+    }
+    return pPane;
+}
+
+RoutePane* FillText(TextPane *pPane, pugi::xml_node &node) {
+    if (pPane == nullptr) {
+        pPane = new TextPane();
+        pPane->Type = PaneType::Text;
+    }
+
+    pPane->FillColor = Gdiplus::Color(0x80,0x50,0x50,0x50);
+    pugi::xml_node fill_color_node = node.child("FillColor");
+    if (!fill_color_node.empty()) {
+        pPane->FillColor = fromString<Gdiplus::Color>(fill_color_node.child_value());
+    }
+
+    pPane->FontColor = Gdiplus::Color(0xff,0xff,0xff,0xff);
+    pugi::xml_node font_color_node = node.child("FontColor");
+    if (!font_color_node.empty()) {
+        pPane->FontColor = fromString<Gdiplus::Color>(font_color_node.child_value());
+    }
+
+    pPane->FontSize = 16;
+    pugi::xml_node font_size_node = node.child("FontSize");
+    if (!font_size_node.empty()) {
+        pPane->FontSize = fromString<int>(font_size_node.child_value());
+    }
+
+    pPane->FontName = "Arial";
+    pugi::xml_node font_name_node = node.child("FontName");
+    if (!font_name_node.empty()) {
+        pPane->FontName = font_name_node.child_value();
+    }
+
+    pPane->Align = TextAlignment::Left;
+    pugi::xml_node align_node = node.child("Align");
+    if (!align_node.empty()) {
+        std::string align_str = align_node.child_value();
+        if (align_str == "Center") {
+            pPane->Align = TextAlignment::Center;
+        } else if (align_str == "Right") {
+            pPane->Align = TextAlignment::Right;
+        }
+    }
+
+    pPane->TextType = TextType::Comment;
+    pugi::xml_node text_type_node = node.child("TextType");
+    if (!text_type_node.empty()) {
+        std::string text_type_str = text_type_node.child_value();
+        if (text_type_str == "Time") {
+            pPane->TextType = TextType::Time;
+        } else if (text_type_str == "Pace") {
+            pPane->TextType = TextType::Pace;
+        } else if (text_type_str == "HR") {
+            pPane->TextType = TextType::HR;
+        }
+    }
+    
+    // Text for comment type, XML path for other types
+    pPane->Value = "";
+    pugi::xml_node value_node = node.child("Value");
+    if (!value_node.empty()) {
+        pPane->Value = value_node.child_value();
+    }
+
+    return FillPane(pPane, node);
+}
+
+RoutePane* FillImage(ImagePane *pPane, pugi::xml_node &node) {
+    if (pPane == nullptr) {
+        pPane = new ImagePane();
+        pPane->Type = PaneType::Image;
+    }
+
+    pPane->Image = "";
+    pugi::xml_node image_node = node.child("Image");
+    if (!image_node.empty()) {
+        pPane->Image = image_node.child_value();
+    }
+
+    return FillPane(pPane, node);
+}
+
+RoutePane* FillLeg(LegPane *pPane, pugi::xml_node &node) {
+    if (pPane == nullptr) {
+        pPane = new LegPane();
+        pPane->Type = PaneType::Leg;
+    }
+
+    pPane->Path = "";
+    pugi::xml_node path_node = node.child("Path");
+    if (!path_node.empty()) {
+        pPane->Path = path_node.child_value();
+    }
+
+    pPane->TailWidth = 8;
+    pugi::xml_node width_node = node.child("TailWidth");
+    if (!width_node.empty()) {
+        pPane->TailWidth = fromString<int>(width_node.child_value());
+    }
+
+    pPane->Margins = 30;
+    pugi::xml_node margins_node = node.child("Margins");
+    if (!margins_node.empty()) {
+        pPane->Margins = fromString<int>(margins_node.child_value());
+    }
+
+    pPane->TailColor = Gdiplus::Color(0x60,0xff,0,0);
+    pugi::xml_node color_node = node.child("TailColor");
+    if (!color_node.empty()) {
+        pPane->TailColor = fromString<Gdiplus::Color>(color_node.child_value());
+    }
+
+    return FillImage(pPane, node);
+}
+
+RoutePane* FillPos(PosPane *pPane, pugi::xml_node &node) {
+    if (pPane == nullptr) {
+        pPane = new PosPane();
+        pPane->Type = PaneType::Pos;
+    }
+
+    pPane->Pointer = "";
+    pugi::xml_node pointer_node = node.child("Pointer");
+    if (!pointer_node.empty()) {
+        pPane->Pointer = pointer_node.child_value();
+    }
+
+    pPane->PointerOpaque = 50;
+    pugi::xml_node opaque_node = node.child("PointerOpaque");
+    if (!opaque_node.empty()) {
+        pPane->PointerOpaque = fromString<int>(opaque_node.child_value());
+    }
+
+    pPane->Tail = -1;
+    pugi::xml_node tail_node = node.child("Tail");
+    if (!tail_node.empty()) {
+        pPane->Tail = fromString<time_t>(tail_node.child_value());
+    }
+
+    return FillLeg(pPane, node);
 }
 
 bool RouteFilterConfig::FromXml(pugi::xml_document &doc)
@@ -165,7 +365,7 @@ bool RouteFilterConfig::FromXml(pugi::xml_document &doc)
     pugi::xml_node settings = doc.child("RouteAddSettings");
 
     pugi::xml_node video_node = settings.child("Video");
-    m_VideoStart = fromString<struct tm>(video_node.attribute("start").as_string());
+    m_VideoStart = fromString<time_t>(video_node.attribute("start").as_string());
 
     pugi::xml_node images_node = settings.child("Images");
 	m_Images.clear();
@@ -188,35 +388,17 @@ bool RouteFilterConfig::FromXml(pugi::xml_document &doc)
 	pugi::xml_node pane_node = panes_node.child("Pane");
 	while (!pane_node.empty())	{
         RoutePane *pPane = nullptr;
-        if (pane_node.attribute("type").as_string() == "logo") {
-            ImagePane *pImagePane = new ImagePane();
-            pImagePane->Image = "";
-            pugi::xml_node image_node = pane_node.child("Image");
-            if (!image_node.empty()) {
-                pImagePane->Image = image_node.child_value();
-            }
-            pPane = pImagePane;
-        } else if (pane_node.attribute("type").as_string() == "leg") {
-            LegPane *pLegPane = new LegPane();
-            pLegPane->Color = fromString<Gdiplus::Color>(pane_node.attribute("color").as_string());
-            pPane = pLegPane;
-        } else if (pane_node.attribute("type").as_string() == "pos") {
-            pPane = new PosPane();
-        } else if (pane_node.attribute("type").as_string() == "text") {
-            pPane = new TextPane();            
+        std::string type_name = std::string(pane_node.attribute("type").as_string());
+        if (type_name == "leg") {
+            pPane = FillLeg(nullptr, pane_node);
+        } else if (type_name == "image") {
+            pPane = FillImage(nullptr, pane_node);
+        } else if (type_name == "pos") {
+            pPane = FillPos(nullptr, pane_node);
+        } else if (type_name == "text") {
+            pPane = FillText(nullptr, pane_node);
         }
         if (pPane != nullptr) {
-            pPane->Name = pane_node.attribute("name").as_string();
-            pPane->X = pane_node.attribute("x").as_int();
-            pPane->Y = pane_node.attribute("y").as_int();
-            pPane->W = pane_node.attribute("w").as_int();
-            pPane->H = pane_node.attribute("h").as_int();
-            pPane->Opaque = pane_node.attribute("opaq").as_int();
-            pPane->Start = 0;
-            pugi::xml_node start_node = pane_node.child("Start");
-            if (!start_node.empty()) {
-                //start_node.child_value();
-            }
             m_Panes[pPane->Name] = pPane;
         }
 		pane_node = pane_node.next_sibling();
@@ -257,42 +439,6 @@ protected:
 	RouteFilterConfig& m_Config;
 	RouteFilterConfig m_OldConfig;
 };
-
-template<class T>
-bool SetDLGFromVal(HWND hdlg, int idc, const T& v);
-
-template<>
-bool SetDLGFromVal<int>(HWND hdlg, int idc, const int& v) {
-	return SetDlgItemInt(hdlg, idc, v, TRUE) != FALSE;
-}
-
-template<>
-bool SetDLGFromVal<std::string>(HWND hdlg, int idc, const std::string& v) {
-	return SetDlgItemText(hdlg, idc, v.c_str()) != FALSE;
-}
-
-template<class T>
-bool SetDLGFromVal(HWND hdlg, int idc, const T& v) {
-	return SetDlgItemText(hdlg, idc, stringFrom(v).c_str()) != FALSE;
-}
-
-template<class T>
-bool GetValFromDLG(HWND hdlg, int idc, T& v) {
-	HWND h = GetDlgItem(hdlg, idc);
-	int l = GetWindowTextLength(h);
-	char *ptxt = new char[l + 1];
-	GetWindowText(h, ptxt, l + 1);
-	v = fromString<T>(ptxt);
-	delete[] ptxt;
-	return true;
-}
-
-template<>
-bool GetValFromDLG<int>(HWND hdlg, int idc, int& v) {
-	BOOL tr;
-	v = (int)GetDlgItemInt(hdlg, idc, &tr, TRUE);
-	return tr != FALSE;
-}
 
 INT_PTR RouteFilterDialog::DlgProc(UINT msg, WPARAM wParam, LPARAM lParam) {
 	switch(msg) {
@@ -439,9 +585,6 @@ protected:
 	RouteFilterConfig	m_Config;
 
     std::map<std::string, Gdiplus::Bitmap*>     m_Images;
-    std::map<std::string, Pen*>                 m_Pens;
-    std::map<std::string, SolidBrush*>          m_Brushes;
-    std::map<std::string, Font*>                m_Fonts;
 	std::map<std::string, PathState>            m_PathDocs;
 
     Gdiplus::Bitmap*                            m_pLastBmp;
@@ -468,21 +611,6 @@ void RouteFilter::DeleteVars()
         delete it->second;
     }
     m_Images.clear();
-
-    for (auto it = m_Pens.begin(); it != m_Pens.end(); ++it) {
-        delete it->second;
-    }
-    m_Pens.clear();
-
-    for (auto it = m_Brushes.begin(); it != m_Brushes.end(); ++it) {
-        delete it->second;
-    }
-    m_Brushes.clear();
-
-    for (auto it = m_Fonts.begin(); it != m_Fonts.end(); ++it) {
-        delete it->second;
-    }
-    m_Fonts.clear();
 
     for (auto it = m_PathDocs.begin(); it != m_PathDocs.end(); ++it) {
         delete it->second.pLegMatrix;
@@ -522,18 +650,6 @@ bool RouteFilter::Init() {
     return ret;
 }
 
-#define CapsCharToVal(x) (*(x)>'9'?*(x)-'A'+10:*(x)-'0')
-#define CapsCharToVal2(x) (CapsCharToVal(x+1)|(CapsCharToVal(x)<<4))
-
-Color ColorFromStr(const char* str) {
-    if (str == NULL || *str == '0') return Color(0,0,0,0);
-    BYTE a = CapsCharToVal2(str);
-    BYTE r = CapsCharToVal2(str+2);
-    BYTE g = CapsCharToVal2(str+4);
-    BYTE b = CapsCharToVal2(str+6);
-    return Color(a,r,g,b);
-}
-
 void RouteFilter::CreateVars() {
     if (!m_Config.m_File.empty()) {
         //load images
@@ -548,25 +664,12 @@ void RouteFilter::CreateVars() {
             P.pPath->load_file(it->second.c_str());
             m_PathDocs[it->first] = P;
         }
-        // //create some resourses
-        // m_pTimeFont = new Font(pugi::as_wide(m_Config.m_TimeFont).c_str(), m_Config.m_TimeSize);
-        // m_pTimeBrush = new SolidBrush(m_Config.m_TimeColor); 
-        // m_pTextBrush = new SolidBrush(m_Config.m_TextColor); 
-        // m_pPenTail = new Pen(m_Config.m_PosColor, m_Config.m_PosSize);
-        // m_pPenLeg = new Pen(m_Config.m_LegColor, m_Config.m_LegSize);
-        // m_pPaceFont = new Font(pugi::as_wide(m_Config.m_PaceFont).c_str(), m_Config.m_PaceSize);
-        // m_pPaceBrush = new SolidBrush(m_Config.m_PaceColor); 
-		// m_pPulseFont = new Font(pugi::as_wide(m_Config.m_PulseFont).c_str(), m_Config.m_PulseSize);
-		// m_pPulseBrush = new SolidBrush(m_Config.m_PulseColor);
-		// m_pCommFont = new Font(pugi::as_wide(m_Config.m_CommFont).c_str(), m_Config.m_CommSize);
-		// m_pCommBrush = new SolidBrush(m_Config.m_CommColor);
     }
     m_Initialized = TRUE;
 }
 
 void RouteFilter::Start() {
-    if (!m_Initialized)
-    {
+    if (!m_Initialized) {
         CreateVars();
     }
 }
@@ -585,28 +688,28 @@ void RouteFilter::Run() {
 
 		switch(pxdst.format) {
 			case nsVDXPixmap::kPixFormat_XRGB8888:
-                Bitmap *pbmp = PrepareRGB32(pxdst.data, pxdst.pitch, pxdst.w, pxdst.h);
+                Gdiplus::Bitmap *pbmp = PrepareRGB32(pxdst.data, pxdst.pitch, pxdst.w, pxdst.h);
                 DrawRoute(pbmp, fa->pfsi->lSourceFrameMS);
                 ApplyRGB32(pbmp, pxdst.data, pxdst.pitch, pxdst.w, pxdst.h);
                 delete pbmp;
 				break;
 		}
 	} else {
-        Bitmap *pbmp = PrepareRGB32(fa->dst.data, fa->dst.pitch, fa->dst.w, fa->dst.h);
+        Gdiplus::Bitmap *pbmp = PrepareRGB32(fa->dst.data, fa->dst.pitch, fa->dst.w, fa->dst.h);
         DrawRoute(pbmp, fa->pfsi->lSourceFrameMS);
         ApplyRGB32(pbmp, fa->dst.data, fa->dst.pitch, fa->dst.w, fa->dst.h);
         delete pbmp;
 	}
 }
 
-Bitmap* RouteFilter::PrepareRGB32(void *data, uint32 pitch, uint32 w, uint32 h) {
+Gdiplus::Bitmap* RouteFilter::PrepareRGB32(void *data, uint32 pitch, uint32 w, uint32 h) {
     //create bitmap on frame!
-    Bitmap *pbmp = new Bitmap(w, h, pitch, PixelFormat32bppRGB, (BYTE*)data);
+    Gdiplus::Bitmap *pbmp = new Gdiplus::Bitmap(w, h, pitch, PixelFormat32bppRGB, (BYTE*)data);
     return pbmp;
 
 }
 
-void RouteFilter::ApplyRGB32(Bitmap *pbmp, void *data, uint32 pitch, uint32 w, uint32 h) {
+void RouteFilter::ApplyRGB32(Gdiplus::Bitmap *pbmp, void *data, uint32 pitch, uint32 w, uint32 h) {
     //do nothing
 }
 
@@ -622,7 +725,11 @@ bool RouteFilter::Configure(VDXHWND hwnd) {
     return ret;
 }
 
-void RouteFilter::DrawRoute(Bitmap *pbmp, uint32 ms) {
+void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
+
+    for (auto it = m_Config.m_Panes.begin(); it != m_Config.m_Panes.end(); ++it) {
+        // m_Images[it->first] = Gdiplus::Bitmap::FromFile(pugi::as_wide(it->second).c_str());
+    }
     // //calculate current run time
     // int32 time_run = ms - m_Config.m_PathOffset*1000;
     // if (time_run < 0)

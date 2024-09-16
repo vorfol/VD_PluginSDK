@@ -10,7 +10,7 @@
 		<Path name="main">C:\Users\45503\Videos\cam\2024_06_01\a1_data.xml</Path>
 	</Paths>
 	<Panes>
-		<Pane type="logo" name="logo" x="2420" y="20" w="222" h="210" opaq="100">
+		<Pane type="image" name="logo" x="2420" y="20" w="222" h="210" opaq="100">
 			<Start>00:00</Start>
 			<End>00:00</End>
 			<Image>logo</Image>
@@ -20,9 +20,9 @@
 			<End>00:00</End>
 			<Image>map</Image>
 			<Path>main</Path>
-			<PathWidth>8</PathWidth>
-			<PathMargins>30</PathMargins>
-			<PathColor>60ff0000</PathColor>
+			<Margins>30</Margins>
+			<TailWidth>8</TailWidth>
+			<TailColor>60ff0000</TailColor>
 		</Pane>
 		<Pane type="pos" name="pos" x="2366" y="1200" w="300" h="300" opaq="100">
 			<Start>00:00</Start>
@@ -35,22 +35,49 @@
 			<TailWidth>8</TailWidth>
 			<TailColor>60ff0000</TailColor>
 		</Pane>
-		<Pane type="text" name="info" x="0" y="0" w="200" h="100" opaq="100">
+		<Pane type="text" name="time" x="0" y="0" w="200" h="30">
 			<Start>00:00</Start>
 			<End>00:00</End>
-			<Fill color="80505050" />
-			<Time x="0" y="0" size="16" font="Courier" color="ffffffff" />
-			<Pace x="0" y="30" size="16" font="Courier" color="ffffffff" avg="30" />
-			<Pulse x="0" y="60" size="16" font="Courier" color="ffffffff" />
-			<Path>main</Path>
+			<FillColor>80505050</FillColor>
+			<FontName>Arial</FontName>
+			<FontColor>ffffffff</FontColor>
+			<FontSize>16</FontSize>
+			<Align>Left</Align>
+			<TextType>Time</TextType>
+			<Value>main</Value>
+		</Pane>
+		<Pane type="text" name="pace" x="0" y="30" w="200" h="30">
+			<Start>00:00</Start>
+			<End>00:00</End>
+			<FillColor>80505050</FillColor>
+			<FontName>Arial</FontName>
+			<FontColor>ffffffff</FontColor>
+			<FontSize>16</FontSize>
+			<Align>Left</Align>
+			<TextType>Pace</TextType>
+			<Value>main</Value>
+		</Pane>
+		<Pane type="text" name="hr" x="0" y="60" w="200" h="30">
+			<Start>00:00</Start>
+			<End>00:00</End>
+			<FillColor>80505050</FillColor>
+			<FontName>Arial</FontName>
+			<FontColor>ffffffff</FontColor>
+			<FontSize>16</FontSize>
+			<Align>Left</Align>
+			<TextType>HR</TextType>
+			<Value>main</Value>
 		</Pane>
 		<Pane type="text" name="comment_1" x="300" y="600" w="600" h="100" opaq="100">
-			<Start>00:00</Start>
-			<Duration>00:10</Duration>
-			<Fill color="80505050" />
-			<Text align="center" size="16" font="Courier" color="ffffffff">
-				Start!
-			</Text>
+			<Start>01:00</Start>
+			<End>01:10</End>
+			<FillColor>80505050</FillColor>
+			<FontName>Arial</FontName>
+			<FontColor>ffffffff</FontColor>
+			<FontSize>16</FontSize>
+			<Align>Center</Align>
+			<TextType>Comment</TextType>
+			<Value>Hi!</Value>
 		</Pane>
 	</Panes>
 </RouteAddSettings>

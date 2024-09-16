@@ -207,12 +207,12 @@ RoutePane* FillPane(RoutePane *pPane, pugi::xml_node &node) {
         if (!node.attribute("opaq").empty()) {
             pPane->Opaque = node.attribute("opaq").as_int();
         }
-        pPane->Start = -1;
+        pPane->Start = 0;
         pugi::xml_node start_node = node.child("Start");
         if (!start_node.empty()) {
             pPane->Start = fromString<time_t>(start_node.child_value());
         }
-        pPane->End = -1;
+        pPane->End = 0;
         pugi::xml_node end_node = node.child("End");
         if (!end_node.empty()) {
             pPane->End = fromString<time_t>(end_node.child_value());
@@ -351,7 +351,7 @@ RoutePane* FillPos(PosPane *pPane, pugi::xml_node &node) {
         pPane->PointerOpaque = fromString<int>(opaque_node.child_value());
     }
 
-    pPane->Tail = -1;
+    pPane->Tail = 60;
     pugi::xml_node tail_node = node.child("Tail");
     if (!tail_node.empty()) {
         pPane->Tail = fromString<time_t>(tail_node.child_value());

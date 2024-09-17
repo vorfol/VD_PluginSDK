@@ -26,6 +26,22 @@ using namespace Gdiplus;
 
 extern int g_VFVAPIVersion;
 
+class GDIToken
+{
+protected:
+    GdiplusStartupInput gdiplusStartupInput;
+    ULONG_PTR           gdiplusToken;
+public:
+    GDIToken()
+    {
+        GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
+    }
+    ~GDIToken()
+    {
+        //GdiplusShutdown(gdiplusToken);
+    }
+};
+
 ///////////////////////////////////////////////////////////////////////////////
 #pragma region RouteFilterConfig
 
@@ -58,8 +74,8 @@ public:
     int         W;
     int         H;
     int         Opaque;     // 0-100
-    time_t      Start;      // GMT
-    time_t      End;        // GMT
+    time_t      Start;      // from video
+    time_t      End;        // from video, must be > Start, else infinite
 };
 
 
@@ -161,18 +177,18 @@ time_t fromString(const std::string& s) {
     // Duration:
     //      "mm:ss" 
     //      "hh:mm:ss"
-        switch (sscanf(s.c_str(), "%d:%dZ", &T.tm_hour, &T.tm_min, &T.tm_sec)) {
+        switch (sscanf(s.c_str(), "%d:%d:%d", &T.tm_hour, &T.tm_min, &T.tm_sec)) {
             default:
                 ret = 0;
                 break;
             case 3:
-                ret -= T.tm_hour * 3600;
-                // fall
+                ret -= T.tm_hour * 3600 + T.tm_min * 60 + T.tm_sec;
+                break;
             case 2:
-                ret -= T.tm_min * 60;
-                // fall
+                ret -= T.tm_hour * 60 + T.tm_min;
+                break;
             case 1: 
-                ret -= T.tm_sec;
+                ret -= T.tm_hour;
                 break;
         }
     }
@@ -210,12 +226,12 @@ RoutePane* FillPane(RoutePane *pPane, pugi::xml_node &node) {
         pPane->Start = 0;
         pugi::xml_node start_node = node.child("Start");
         if (!start_node.empty()) {
-            pPane->Start = fromString<time_t>(start_node.child_value());
+            pPane->Start = -fromString<time_t>(start_node.child_value());
         }
         pPane->End = 0;
         pugi::xml_node end_node = node.child("End");
         if (!end_node.empty()) {
-            pPane->End = fromString<time_t>(end_node.child_value());
+            pPane->End = -fromString<time_t>(end_node.child_value());
         }
     }
     return pPane;
@@ -574,6 +590,8 @@ public:
 
 protected:
 
+    GDIToken    m_GDIToken;
+
     virtual void ZeroVars();    //pointers only
     virtual void DeleteVars();
     virtual void CreateVars();  //from m_Config!
@@ -731,9 +749,9 @@ bool RouteFilter::Configure(VDXHWND hwnd) {
 
 void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
     if (pbmp == nullptr) {
-        FILE* pFile = fopen("log.txt", "a");
-        fprintf(pFile, "No image to draw %i\n", ms);
-        fclose(pFile);
+        // FILE* pFile = fopen("log.txt", "a");
+        // fprintf(pFile, "No image to draw %i\n", ms);
+        // fclose(pFile);
         return;
     }
     // Test if bitmap size changed
@@ -798,7 +816,7 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
         graphics.Clear(clear_color);
         for (auto it = m_Config.m_Panes.begin(); it != m_Config.m_Panes.end(); ++it) {
             RoutePane *pPane = it->second;
-            if (pPane->Start * 1000 >= ms) {
+            if (1000 * pPane->Start <= ms && (pPane->End <= pPane->Start || 1000 * pPane->End >= ms)) {
                 if (pPane->Type == PaneType::Image) {
                     Gdiplus::Bitmap *pImage = m_Images[((ImagePane*)pPane)->Image];
                     ImageAttributes ImgAttr;

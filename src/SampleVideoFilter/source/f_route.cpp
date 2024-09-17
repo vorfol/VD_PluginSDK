@@ -533,7 +533,9 @@ bool RouteFilterDialog::OnCommand(int cmd) {
 struct PathState {
 public:
     pugi::xml_document             *pPath;
+    time_t                          startTime;
     pugi::xml_node                  lastSample;
+    pugi::xml_node                  currentSample;
     int                             legPosition;
     Gdiplus::Matrix                *pLegMatrix;
     std::vector<Gdiplus::PointF>    legPoints;
@@ -582,7 +584,7 @@ protected:
 
 	void ScriptConfig(IVDXScriptInterpreter *isi, const VDXScriptValue *argv, int argc);
 
-	RouteFilterConfig	m_Config;
+	RouteFilterConfig	                        m_Config;
 
     std::map<std::string, Gdiplus::Bitmap*>     m_Images;
 	std::map<std::string, PathState>            m_PathDocs;
@@ -662,6 +664,9 @@ void RouteFilter::CreateVars() {
             P.pLegMatrix = nullptr;
             P.pPath = new pugi::xml_document();
             P.pPath->load_file(it->second.c_str());
+            P.lastSample = P.pPath->child("Route").child("Segment").first_child();
+            P.startTime = fromString<time_t>(P.lastSample.attribute("time").as_string());
+            P.hasChanged = true;
             m_PathDocs[it->first] = P;
         }
     }
@@ -726,55 +731,75 @@ bool RouteFilter::Configure(VDXHWND hwnd) {
 }
 
 void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
-
-    for (auto it = m_Config.m_Panes.begin(); it != m_Config.m_Panes.end(); ++it) {
-        // m_Images[it->first] = Gdiplus::Bitmap::FromFile(pugi::as_wide(it->second).c_str());
+    // Recalculate paths
+    bool refresh = false;
+    for (auto it = m_PathDocs.begin(); it != m_PathDocs.end(); ++it) {
+        PathState &PathState = it->second;
+        time_t time_run = m_Config.m_VideoStart + ms - PathState.startTime;
+        if (time_run < 0) {
+            time_run = 0;
+        }
+        PathState.currentSample = PathState.lastSample;
+        if (PathState.currentSample.empty()) {
+            PathState.currentSample = PathState.pPath->child("Route").child("Segment").first_child();
+        }
+        //go forward
+        double elapsed_time = PathState.currentSample.attribute("elapsedTime").as_double();
+        while(time_run > elapsed_time*1000) {
+            PathState.currentSample = PathState.currentSample.next_sibling();
+            if (PathState.currentSample.empty()) {
+                //end of path reached
+                PathState.currentSample = PathState.pPath->child("Route").child("Segment").last_child();
+                break;
+            }
+            elapsed_time = PathState.currentSample.attribute("elapsedTime").as_double();
+        }
+        //go to previous sample
+        if (!PathState.currentSample.previous_sibling().empty()) {
+            PathState.currentSample = PathState.currentSample.previous_sibling();
+            elapsed_time = PathState.currentSample.attribute("elapsedTime").as_double();
+        }
+        //go backward
+        while(time_run < elapsed_time*1000) {
+            PathState.currentSample = PathState.currentSample.previous_sibling();
+            if (PathState.currentSample.empty()) {
+                //begin of path reaches
+                PathState.currentSample = PathState.pPath->child("Route").child("Segment").first_child();;
+                break;
+            }
+            elapsed_time = PathState.currentSample.attribute("elapsedTime").as_double();
+        }
+        refresh |= (PathState.currentSample != PathState.lastSample);
     }
-    // //calculate current run time
-    // int32 time_run = ms - m_Config.m_PathOffset*1000;
-    // if (time_run < 0)
-    // {
-    //     time_run = 0;
-    // }
 
-    // //find current sample by run time
-    // pugi::xml_node current_sample = m_LastSample;
-    // if (current_sample.empty())
-    // {
-    //     //get first sample
-    //     current_sample = m_pPathDoc->child("Route").child("Segment").first_child();
-    // }
-    // //go forward
-    // double elapsed_time = current_sample.attribute("elapsedTime").as_double();
-    // while(time_run > elapsed_time*1000)
-    // {
-    //     current_sample = current_sample.next_sibling();
-    //     if (current_sample.empty())
-    //     {
-    //         //end of path reached
-    //         current_sample = m_pPathDoc->child("Route").child("Segment").last_child();
-    //         break;
-    //     }
-    //     elapsed_time = current_sample.attribute("elapsedTime").as_double();
-    // }
-    // //go to previous sample
-    // if (!current_sample.previous_sibling().empty())
-    // {
-    //     current_sample = current_sample.previous_sibling();
-    //     elapsed_time = current_sample.attribute("elapsedTime").as_double();
-    // }
-    // //go backward
-    // while(time_run < elapsed_time*1000)
-    // {
-    //     current_sample = current_sample.previous_sibling();
-    //     if (current_sample.empty())
-    //     {
-    //         //begin of path reaches
-    //         current_sample = m_pPathDoc->child("Route").child("Segment").first_child();;
-    //         break;
-    //     }
-    //     elapsed_time = current_sample.attribute("elapsedTime").as_double();
-    // }
+    // Refresh image
+    if (refresh) {
+        // Test if bitmap size changed
+        if (m_pLastBmp && (m_pLastBmp->GetWidth() != pbmp->GetWidth() || m_pLastBmp->GetHeight() != pbmp->GetHeight())) {
+            delete m_pLastBmp;
+            m_pLastBmp = nullptr;
+        }
+        // Create new if needed
+        if (!m_pLastBmp) {
+            m_pLastBmp = new Gdiplus::Bitmap(pbmp->GetWidth(), pbmp->GetHeight(), PixelFormat32bppARGB);
+        }
+
+        Gdiplus::Status status;
+
+        //draw into bitmap
+        Gdiplus::Graphics graphics(m_pLastBmp);
+        Color clear_color(0,0,0,0);
+        graphics.Clear(clear_color);
+        for (auto it = m_Config.m_Panes.begin(); it != m_Config.m_Panes.end(); ++it) {
+            RoutePane *pPane = it->second;
+        }
+    }
+
+    // Keep lastSample
+    for (auto it = m_PathDocs.begin(); it != m_PathDocs.end(); ++it) {
+        PathState &PathState = it->second;
+        PathState.lastSample = PathState.currentSample;
+    }
 
     // //test if sample change
     // if (m_LastSample.empty() || m_LastSample != current_sample)

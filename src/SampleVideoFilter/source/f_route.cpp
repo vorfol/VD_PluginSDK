@@ -666,7 +666,6 @@ void RouteFilter::CreateVars() {
             P.pPath->load_file(it->second.c_str());
             P.lastSample = P.pPath->child("Route").child("Segment").first_child();
             P.startTime = fromString<time_t>(P.lastSample.attribute("time").as_string());
-            P.hasChanged = true;
             m_PathDocs[it->first] = P;
         }
     }
@@ -731,11 +730,23 @@ bool RouteFilter::Configure(VDXHWND hwnd) {
 }
 
 void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
+    if (pbmp == nullptr) {
+        FILE* pFile = fopen("log.txt", "a");
+        fprintf(pFile, "No image to draw %i\n", ms);
+        fclose(pFile);
+        return;
+    }
+    // Test if bitmap size changed
+    if (m_pLastBmp && (m_pLastBmp->GetWidth() != pbmp->GetWidth() || m_pLastBmp->GetHeight() != pbmp->GetHeight())) {
+        delete m_pLastBmp;
+        m_pLastBmp = nullptr;
+    }
+    bool refresh = (m_pLastBmp == nullptr);
+
     // Recalculate paths
-    bool refresh = false;
     for (auto it = m_PathDocs.begin(); it != m_PathDocs.end(); ++it) {
         PathState &PathState = it->second;
-        time_t time_run = m_Config.m_VideoStart + ms - PathState.startTime;
+        int64 time_run = ms + 1000 * (m_Config.m_VideoStart - PathState.startTime);
         if (time_run < 0) {
             time_run = 0;
         }
@@ -774,11 +785,6 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
 
     // Refresh image
     if (refresh) {
-        // Test if bitmap size changed
-        if (m_pLastBmp && (m_pLastBmp->GetWidth() != pbmp->GetWidth() || m_pLastBmp->GetHeight() != pbmp->GetHeight())) {
-            delete m_pLastBmp;
-            m_pLastBmp = nullptr;
-        }
         // Create new if needed
         if (!m_pLastBmp) {
             m_pLastBmp = new Gdiplus::Bitmap(pbmp->GetWidth(), pbmp->GetHeight(), PixelFormat32bppARGB);
@@ -792,7 +798,29 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
         graphics.Clear(clear_color);
         for (auto it = m_Config.m_Panes.begin(); it != m_Config.m_Panes.end(); ++it) {
             RoutePane *pPane = it->second;
+            if (pPane->Start * 1000 >= ms) {
+                if (pPane->Type == PaneType::Image) {
+                    Gdiplus::Bitmap *pImage = m_Images[((ImagePane*)pPane)->Image];
+                    ImageAttributes ImgAttr;
+                    ColorMatrix ClrMatrix = { 
+                            1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+                            0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
+                            0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
+                            0.0f, 0.0f, 0.0f, pPane->Opaque/(100.0f), 0.0f,
+                            0.0f, 0.0f, 0.0f, 0.0f, 1.0f
+                    };
+                    ImgAttr.SetColorMatrix(&ClrMatrix, ColorMatrixFlagsDefault, ColorAdjustTypeBitmap);
+                    Rect    destination(pPane->X, pPane->Y, pPane->W, pPane->H);
+                    status = graphics.DrawImage(pImage, destination, 0, 0, pImage->GetWidth(), pImage->GetHeight(), Gdiplus::UnitPixel, &ImgAttr);
+                }
+            }
         }
+    }
+
+    // Draw last bitmap for each frame
+    if (m_pLastBmp) {
+        Gdiplus::Graphics gr_to(pbmp);
+        gr_to.DrawImage(m_pLastBmp, 0, 0);
     }
 
     // Keep lastSample

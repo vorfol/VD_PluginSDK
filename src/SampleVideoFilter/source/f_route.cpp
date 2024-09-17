@@ -182,13 +182,13 @@ time_t fromString(const std::string& s) {
                 ret = 0;
                 break;
             case 3:
-                ret -= T.tm_hour * 3600 + T.tm_min * 60 + T.tm_sec;
+                ret = T.tm_hour * 3600 + T.tm_min * 60 + T.tm_sec;
                 break;
             case 2:
-                ret -= T.tm_hour * 60 + T.tm_min;
+                ret = T.tm_hour * 60 + T.tm_min;
                 break;
             case 1: 
-                ret -= T.tm_hour;
+                ret = T.tm_hour;
                 break;
         }
     }
@@ -226,12 +226,12 @@ RoutePane* FillPane(RoutePane *pPane, pugi::xml_node &node) {
         pPane->Start = 0;
         pugi::xml_node start_node = node.child("Start");
         if (!start_node.empty()) {
-            pPane->Start = -fromString<time_t>(start_node.child_value());
+            pPane->Start = fromString<time_t>(start_node.child_value());
         }
         pPane->End = 0;
         pugi::xml_node end_node = node.child("End");
         if (!end_node.empty()) {
-            pPane->End = -fromString<time_t>(end_node.child_value());
+            pPane->End = fromString<time_t>(end_node.child_value());
         }
     }
     return pPane;
@@ -749,9 +749,9 @@ bool RouteFilter::Configure(VDXHWND hwnd) {
 
 void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
     if (pbmp == nullptr) {
-        // FILE* pFile = fopen("log.txt", "a");
-        // fprintf(pFile, "No image to draw %i\n", ms);
-        // fclose(pFile);
+        FILE* pFile = fopen("log.txt", "a");
+        fprintf(pFile, "No image to draw %i\n", ms);
+        fclose(pFile);
         return;
     }
     // Test if bitmap size changed
@@ -816,20 +816,115 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
         graphics.Clear(clear_color);
         for (auto it = m_Config.m_Panes.begin(); it != m_Config.m_Panes.end(); ++it) {
             RoutePane *pPane = it->second;
-            if (1000 * pPane->Start <= ms && (pPane->End <= pPane->Start || 1000 * pPane->End >= ms)) {
+            if (pPane->Opaque > 0 &&
+                1000 * pPane->Start <= ms && 
+                (pPane->End <= pPane->Start || 1000 * pPane->End >= ms))
+            {
                 if (pPane->Type == PaneType::Image) {
                     Gdiplus::Bitmap *pImage = m_Images[((ImagePane*)pPane)->Image];
-                    ImageAttributes ImgAttr;
-                    ColorMatrix ClrMatrix = { 
+                    if (pImage != nullptr) {
+                        Gdiplus::ImageAttributes ImgAttr;
+                        Gdiplus::ColorMatrix ClrMatrix = { 
+                                1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+                                0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
+                                0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
+                                0.0f, 0.0f, 0.0f, pPane->Opaque/(100.0f), 0.0f,
+                                0.0f, 0.0f, 0.0f, 0.0f, 1.0f
+                        };
+                        ImgAttr.SetColorMatrix(&ClrMatrix, Gdiplus::ColorMatrixFlagsDefault, Gdiplus::ColorAdjustTypeBitmap);
+                        Gdiplus::Rect    destination(pPane->X, pPane->Y, pPane->W, pPane->H);
+                        status = graphics.DrawImage(pImage, destination, 0, 0, pImage->GetWidth(), pImage->GetHeight(), Gdiplus::UnitPixel, &ImgAttr);
+                    }
+                } else if (pPane->Type == PaneType::Pos) {
+                    //draw current position
+                    PathState &PathState = m_PathDocs[((PosPane*)pPane)->Path];
+                    if (&m_PathDocs == nullptr) {
+                        continue;   // to the next pane
+                    }
+
+                    int32 image_x = PathState.currentSample.attribute("imageX").as_int();
+                    int32 image_y = PathState.currentSample.attribute("imageY").as_int();
+
+                    double head_direction = PathState.currentSample.attribute("direction").as_double();
+
+                    // Next transformations are both for the image and the tail
+                    Gdiplus::GraphicsState state = graphics.Save();
+
+                    //TODO: clip by region
+                    Gdiplus::Rect clip_rect(pPane->X, pPane->Y, pPane->W, pPane->H);
+                    graphics.SetClip(clip_rect);
+
+                    Gdiplus::Matrix rotate_at_map;
+                    Gdiplus::PointF center(pPane->X + pPane->W/2, pPane->Y + pPane->H/2);
+                    Gdiplus::PointF image_pos(image_x, image_y);
+                    rotate_at_map.RotateAt(-head_direction, image_pos);
+                    rotate_at_map.Translate(center.X-image_x, center.Y-image_y, MatrixOrderAppend);
+                    graphics.SetTransform(&rotate_at_map);
+
+                    Gdiplus::ColorMatrix ClrMatrix = { 
                             1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
                             0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
                             0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
                             0.0f, 0.0f, 0.0f, pPane->Opaque/(100.0f), 0.0f,
                             0.0f, 0.0f, 0.0f, 0.0f, 1.0f
                     };
-                    ImgAttr.SetColorMatrix(&ClrMatrix, ColorMatrixFlagsDefault, ColorAdjustTypeBitmap);
-                    Rect    destination(pPane->X, pPane->Y, pPane->W, pPane->H);
-                    status = graphics.DrawImage(pImage, destination, 0, 0, pImage->GetWidth(), pImage->GetHeight(), Gdiplus::UnitPixel, &ImgAttr);
+                    Gdiplus::ImageAttributes ImgAttr;
+                    ImgAttr.SetColorMatrix(&ClrMatrix, Gdiplus::ColorMatrixFlagsDefault, Gdiplus::ColorAdjustTypeBitmap);
+
+                    Gdiplus::Bitmap *pImage = m_Images[((ImagePane*)pPane)->Image];
+                    if (pImage != nullptr) {
+                        Gdiplus::Rect    destination(0, 0, pImage->GetWidth(), pImage->GetHeight());
+                        status = graphics.DrawImage(pImage, destination, 0, 0, pImage->GetWidth(), pImage->GetHeight(), UnitPixel, &ImgAttr);
+                        if (status != Status::Ok) {
+                            FILE* pFile = fopen("log.txt", "a");
+                            fprintf(pFile, "Status draw %s image => %i\n", pPane->Name, status);
+                            fclose(pFile);
+                        }
+                    }
+
+                    //draw tail
+                    Gdiplus::Pen *pPenTail = new Gdiplus::Pen(((PosPane*)pPane)->TailColor, ((PosPane*)pPane)->TailWidth);
+                    int tail = ((PosPane*)pPane)->Tail;
+                    int last_x = image_x;
+                    int last_y = image_y;
+                    pugi::xml_node sample = PathState.currentSample.previous_sibling();
+                    while(tail-- > 0) {
+                        if (sample.empty()) {
+                            break;
+                        }
+                        int new_img_x = sample.attribute("imageX").as_int();
+                        int new_img_y = sample.attribute("imageY").as_int();
+                        graphics.DrawLine(pPenTail, last_x, last_y, new_img_x, new_img_y);
+                        last_x = new_img_x;
+                        last_y = new_img_y;
+                        sample = sample.previous_sibling();
+                    }
+                    delete pPenTail;
+
+                    graphics.Restore(state);
+
+                    // Draw pointer, by the center and to the north only
+                    Gdiplus::Bitmap *pPointer = m_Images[((PosPane*)pPane)->Pointer];
+                    if (pPointer != nullptr) {
+                        Gdiplus::ImageAttributes ImgAttr;
+                        ColorMatrix ClrMatrix = { 
+                                1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+                                0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
+                                0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
+                                0.0f, 0.0f, 0.0f, pPane->Opaque/(100.0f), 0.0f,
+                                0.0f, 0.0f, 0.0f, 0.0f, 1.0f
+                        };
+                        ImgAttr.SetColorMatrix(&ClrMatrix, Gdiplus::ColorMatrixFlagsDefault, Gdiplus::ColorAdjustTypeBitmap);
+                        Gdiplus::Rect    destination(pPane->X + pPane->W/2 - pPointer->GetWidth()/2, 
+                                                    pPane->Y + pPane->H/2 - pPointer->GetHeight()/2,
+                                                    pPointer->GetWidth(), pPointer->GetHeight());
+                        status = graphics.DrawImage(pPointer, destination, 0, 0, pPointer->GetWidth(), pPointer->GetHeight(), UnitPixel, &ImgAttr);
+                        if (status != Status::Ok) {
+                            FILE* pFile = fopen("log.txt", "a");
+                            fprintf(pFile, "Status draw %s pointer => %i\n", pPane->Name, status);
+                            fclose(pFile);
+                        }
+                    }
                 }
             }
         }

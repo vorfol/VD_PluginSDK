@@ -439,7 +439,7 @@ void RouteFilter::DrawRoute(Bitmap *pbmp, uint32 ms)
     uint32 hour = (time_run/1000)/3600;
     uint32 min = ((time_run/1000)%3600)/60;
     uint32 sec = (time_run/1000)%60;
-    wsprintfW(wstr, L"Время: %02i:%02i'%02i", hour, min, sec); 
+    wsprintfW(wstr, L"пїЅпїЅпїЅпїЅпїЅ: %02i:%02i'%02i", hour, min, sec); 
     graphics.DrawString(wstr, wcslen(wstr), m_pTimeFont, m_TimePos, m_pTimeBrush); 
 
     pugi::xml_node last_sample = m_current_Sample;
@@ -485,7 +485,7 @@ void RouteFilter::DrawRoute(Bitmap *pbmp, uint32 ms)
     }
     int pace_s = pace_m%60;
     pace_m/=60;
-    wsprintfW(wstr, L"Темп: %i'%02i", pace_m, pace_s); 
+    wsprintfW(wstr, L"пїЅпїЅпїЅпїЅ: %i'%02i", pace_m, pace_s); 
     graphics.DrawString(wstr, wcslen(wstr), m_pPaceFont, m_PacePos, m_pPaceBrush); 
 
     int32 last_lap = last_sample.attribute("lapNumber").as_int();
@@ -559,4 +559,4 @@ void RouteFilter::ScriptConfig(IVDXScriptInterpreter *isi, const VDXScriptValue 
 
 ///////////////////////////////////////////////////////////////////////////////
 
-extern VDXFilterDefinition filterDef_RouteAdd = VDXVideoFilterDefinition<RouteFilter>("Vorfol", "Route add", "Add route.");
+extern VDXFilterDefinition filterDef_RouteAdd = VDXVideoFilterDefinition<RouteFilter>("Vorfol", "Add Route", "Add route.");

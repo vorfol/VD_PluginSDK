@@ -695,9 +695,47 @@ void RouteFilter::CreateVars() {
             P.pLegMatrix = nullptr;
             P.pPath = new pugi::xml_document();
             if (P.pPath->load_file(it->second.c_str())) {
-                P.currentSample = P.pPath->child("Route").child("Segment").first_child();
-                P.startTime = fromString<time_t>(P.currentSample.attribute("time").as_string());
-                m_PathStates[it->first] = P;
+                pugi::xml_node route = P.pPath->child("Route");
+                if (route.empty()) {
+                    FILE* pFile = fopen("log.txt", "a");
+                    fprintf(pFile, "No Route in %s\n", it->second.c_str());
+                    fclose(pFile);
+                } else {
+                    pugi::xml_node segment = route.child("Segment");
+                    if (segment.empty()) {
+                        FILE* pFile = fopen("log.txt", "a");
+                        fprintf(pFile, "No Segment in %s\n", it->second.c_str());
+                        fclose(pFile);
+                    } else {
+                        P.currentSample = segment.first_child();
+                        if (P.currentSample.empty()) {
+                            FILE* pFile = fopen("log.txt", "a");
+                            fprintf(pFile, "No samples in %s\n", it->second.c_str());
+                            fclose(pFile);
+                        } else {
+                            bool good_file = true;
+                            const char *requiredAttributes[] = {
+                                "time",
+                                "elapsedTimeFromStart",
+                                "imageX",
+                                "imageY",
+                                "lapNumber"
+                            };
+                            for(int i = 0; i < sizeof(requiredAttributes)/sizeof(requiredAttributes[0]); ++i) {
+                                if (P.currentSample.attribute(requiredAttributes[i]).empty()) {
+                                    FILE* pFile = fopen("log.txt", "a");
+                                    fprintf(pFile, "No \"%s\" attribute in %s\n", requiredAttributes[i], it->second.c_str());
+                                    fclose(pFile);
+                                    good_file = false;
+                                }                                
+                            }
+                            if (good_file) {
+                                P.startTime = fromString<time_t>(P.currentSample.attribute("time").as_string());
+                                m_PathStates[it->first] = P;
+                            }
+                        }
+                    }
+                }
             }
         }
         //init pane states
@@ -770,7 +808,7 @@ bool RouteFilter::Configure(VDXHWND hwnd) {
 void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
     if (pbmp == nullptr) {
         FILE* pFile = fopen("log.txt", "a");
-        fprintf(pFile, "No image to draw at %i ms\n", ms);
+        fprintf(pFile, "No image to draw at %i\n", ms / 1000);
         fclose(pFile);
         return;
     }
@@ -794,7 +832,7 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
             PathState.currentSample = PathState.pPath->child("Route").child("Segment").first_child();
         }
         //go forward
-        int elapsed_time = PathState.currentSample.attribute("elapsedTime").as_int();
+        int elapsed_time = PathState.currentSample.attribute("elapsedTimeFromStart").as_int();
         while(time_run > elapsed_time*1000) {
             PathState.currentSample = PathState.currentSample.next_sibling();
             if (PathState.currentSample.empty()) {
@@ -802,12 +840,12 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
                 PathState.currentSample = PathState.pPath->child("Route").child("Segment").last_child();
                 break;
             }
-            elapsed_time = PathState.currentSample.attribute("elapsedTime").as_int();
+            elapsed_time = PathState.currentSample.attribute("elapsedTimeFromStart").as_int();
         }
         //go to previous sample
         if (!PathState.currentSample.previous_sibling().empty()) {
             PathState.currentSample = PathState.currentSample.previous_sibling();
-            elapsed_time = PathState.currentSample.attribute("elapsedTime").as_int();
+            elapsed_time = PathState.currentSample.attribute("elapsedTimeFromStart").as_int();
         }
         //go backward
         while(time_run < elapsed_time*1000) {
@@ -817,7 +855,7 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
                 PathState.currentSample = PathState.pPath->child("Route").child("Segment").first_child();;
                 break;
             }
-            elapsed_time = PathState.currentSample.attribute("elapsedTime").as_int();
+            elapsed_time = PathState.currentSample.attribute("elapsedTimeFromStart").as_int();
         }
     
         refreshImages |= (PathState.currentSample != last_sample);
@@ -840,7 +878,7 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
             //add all leg points to array
             while(!sample.empty() && sample.attribute("lapNumber").as_int() == PathState.currentLap) {
                 PathState.legPoints.push_back(Gdiplus::PointF(sample.attribute("imageX").as_int(), sample.attribute("imageY").as_int()));
-                PathState.legTimes.push_back(sample.attribute("elapsedTime").as_int());
+                PathState.legTimes.push_back(sample.attribute("elapsedTimeFromStart").as_int());
                 sample = sample.next_sibling();
             }
 
@@ -942,7 +980,10 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
                     int32 image_x = PathState.currentSample.attribute("imageX").as_int();
                     int32 image_y = PathState.currentSample.attribute("imageY").as_int();
 
-                    double head_direction = PathState.currentSample.attribute("direction").as_double();
+                    double head_direction = 0;
+                    if (!PathState.currentSample.attribute("direction").empty()) {
+                        PathState.currentSample.attribute("direction").as_double();
+                    }
 
                     // Next transformations are both for the image and the tail
                     Gdiplus::GraphicsState state = graphics.Save();
@@ -974,7 +1015,7 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
                         status = graphics.DrawImage(pImage, destination, 0, 0, pImage->GetWidth(), pImage->GetHeight(), UnitPixel, &ImgAttr);
                         if (status != Status::Ok) {
                             FILE* pFile = fopen("log.txt", "a");
-                            fprintf(pFile, "Status draw \"%s\" image => %i\n", pRoutePane->Name.c_str(), status);
+                            fprintf(pFile, "Status draw \"%s\" image => %i at %d\n", pRoutePane->Name.c_str(), status, ms / 1000);
                             fclose(pFile);
                         }
                     }
@@ -1018,7 +1059,7 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
                         status = graphics.DrawImage(pPointer, destination, 0, 0, pPointer->GetWidth(), pPointer->GetHeight(), UnitPixel, &ImgAttr);
                         if (status != Status::Ok) {
                             FILE* pFile = fopen("log.txt", "a");
-                            fprintf(pFile, "Status draw \"%s\" pointer => %i\n", pRoutePane->Name.c_str(), status);
+                            fprintf(pFile, "Status draw \"%s\" pointer => %i at %d\n", pRoutePane->Name.c_str(), status, ms / 1000);
                             fclose(pFile);
                         }
                     }
@@ -1082,7 +1123,7 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
                         status = graphics.DrawImage(pImage, destination, 0, 0, pImage->GetWidth(), pImage->GetHeight(), UnitPixel, &ImgAttr);
                         if (status != Gdiplus::Status::Ok) {
                             FILE* pFile = fopen("log.txt", "a");
-                            fprintf(pFile, "Status draw leg \"%s\" image => %i\n", pRoutePane->Name.c_str(), status);
+                            fprintf(pFile, "Status draw leg \"%s\" image => %i at %d\n", pRoutePane->Name.c_str(), status, ms / 1000);
                             fclose(pFile);
                         }
 
@@ -1095,8 +1136,8 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
                             status = graphics.DrawLines(pPenTail, RoutePaneState.legPoints.data(), PathState.legPosition);
                             if (status != Gdiplus::Status::Ok) {
                                 FILE* pFile = fopen("log.txt", "a");
-                                fprintf(pFile, "Status draw \"%s\" points => %i, size %i, pos %i\n", 
-                                    pRoutePane->Name.c_str(), status, RoutePaneState.legPoints.size(), PathState.legPosition);
+                                fprintf(pFile, "Status draw \"%s\" points => %i, size %i, pos %i, at %d\n", 
+                                    pRoutePane->Name.c_str(), status, RoutePaneState.legPoints.size(), PathState.legPosition, ms / 1000);
                                 fclose(pFile);
                             }
                             delete pPenTail;
@@ -1113,16 +1154,22 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
                         if (&PathState != nullptr) {
                             WCHAR wstr[256] = {0};
                             if (pTextPane->TextType == TextType::Time) {
-                                int elapsedTime = PathState.currentSample.attribute("elapsedTime").as_int();
-                                uint32 hour = elapsedTime / 3600;
-                                uint32 min = (elapsedTime % 3600) / 60;
-                                uint32 sec = elapsedTime % 60;
+                                int elapsedTimeFromStart = PathState.currentSample.attribute("elapsedTimeFromStart").as_int();
+                                uint32 hour = elapsedTimeFromStart / 3600;
+                                uint32 min = (elapsedTimeFromStart % 3600) / 60;
+                                uint32 sec = elapsedTimeFromStart % 60;
                                 wsprintfW(wstr, L"%02i:%02i'%02i", hour, min, sec);
                             } else if (pTextPane->TextType == TextType::HR) {
-                                wsprintfW(wstr, L"%i", PathState.currentSample.attribute("heartRate").as_int());
+                                pugi::xml_attribute hr_attr = PathState.currentSample.attribute("heartRate");
+                                if (!hr_attr.empty()) {
+                                    wsprintfW(wstr, L"%i", hr_attr.as_int());
+                                }
                             } else if (pTextPane->TextType == TextType::Pace) {
-                                int pace = PathState.currentSample.attribute("pace").as_int();
-                                wsprintfW(wstr, L"%i'%02i", pace / 60, pace % 60);
+                                pugi::xml_attribute pace_attr = PathState.currentSample.attribute("heartRate");
+                                if (!pace_attr.empty()) {
+                                    int pace = pace_attr.as_int();
+                                    wsprintfW(wstr, L"%i'%02i", pace / 60, pace % 60);
+                                }
                             }
                             out_string = wstr;
                         }
@@ -1168,371 +1215,6 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
         gr_to.DrawImage(m_pLastBmp, 0, 0);
     }
 
-    // //test if sample change
-    // if (m_LastSample.empty() || m_LastSample != current_sample)
-    // {
-    //     //create bitmap
-    //     if (m_pLastBmp && (m_pLastBmp->GetWidth() != pbmp->GetWidth() || m_pLastBmp->GetHeight() != pbmp->GetHeight())) {
-    //         delete m_pLastBmp;
-    //         m_pLastBmp = nullptr;
-    //     }
-    //     if (!m_pLastBmp)
-    //         m_pLastBmp = new Bitmap(pbmp->GetWidth(), pbmp->GetHeight(), PixelFormat32bppARGB);
-
-    //     Gdiplus::Status status;
-
-    //     //draw into bitmap
-    //     Gdiplus::Graphics graphics(m_pLastBmp);
-    //     Color clear_color(0,0,0,0);
-    //     graphics.Clear(clear_color);
-
-    //     graphics.FillRectangle(m_pTextBrush, m_Config.m_TextX, m_Config.m_TextY, m_Config.m_TextWidth, m_Config.m_TextHeight);
-
-    //     //draw time text NOTE: samples must be each second!!! in other case time will be displayed with gaps
-    //     WCHAR wstr[256];
-    //     uint32 hour = (time_run/1000)/3600;
-    //     uint32 min = ((time_run/1000)%3600)/60;
-    //     uint32 sec = (time_run/1000)%60;
-    //     wsprintfW(wstr, L"%02i:%02i'%02i", hour, min, sec);
-    //     graphics.DrawString(wstr, wcslen(wstr), m_pTimeFont, PointF(m_Config.m_TextX + m_Config.m_TimeX, m_Config.m_TextY + m_Config.m_TimeY), m_pTimeBrush); 
-
-    //     wsprintfW(wstr, L"%i", current_sample.attribute("heartRate").as_int());
-    //     graphics.DrawString(wstr, wcslen(wstr), m_pPulseFont, PointF(m_Config.m_TextX + m_Config.m_PulseX, m_Config.m_TextY + m_Config.m_PulseY), m_pPulseBrush); 
-
-    //     //draw pace
-    //     int pace_m = current_sample.attribute("pace").as_int();
-    //     if (m_Config.m_PaceAvg > 1)  //NOTE: tail by samples, not by seconds
-    //     {
-    //         pugi::xml_node sample = current_sample.previous_sibling();
-    //         for(int i = 1; i < m_Config.m_PaceAvg; i++)
-    //         {
-    //             if (!sample.empty())
-    //             {
-    //                 pace_m += sample.attribute("pace").as_int();
-    //                 sample = sample.previous_sibling();
-    //             }
-    //             else
-    //             {
-    //                 pace_m += 30*60;
-    //             }
-    //         }
-    //         pace_m /= m_Config.m_PaceAvg;
-    //     }
-    //     if (pace_m > 30*60)
-    //     {
-    //         pace_m = 0;
-    //     }
-    //     int pace_s = pace_m%60;
-    //     pace_m /=60;
-    //     wsprintfW(wstr, L"%i'%02i", pace_m, pace_s); 
-    //     graphics.DrawString(wstr, wcslen(wstr), m_pPaceFont, PointF(m_Config.m_TextX + m_Config.m_PaceX, m_Config.m_TextY + m_Config.m_PaceY), m_pPaceBrush);
-
-	// 	//draw comments
-	// 	if (m_pCommBrush != NULL && m_pCommFont != NULL)
-	// 	{
-	// 		for (auto& comment : m_Config.m_Comments)
-	// 		{
-	// 			if (ms / 1000 > comment.m_Time &&
-	// 				ms / 1000 < comment.m_Time + comment.m_Dur)
-	// 			{
-	// 				RectF rc(m_Config.m_CommX, m_Config.m_CommY, m_Config.m_CommW, m_Config.m_CommH);
-	// 				std::wstring draw_me = pugi::as_wide(comment.m_Text.c_str());
-	// 				graphics.DrawString
-	// 					(draw_me.c_str(),
-	// 					draw_me.length(),
-	// 					m_pCommFont, 
-	// 					rc, 
-	// 					StringFormat::GenericDefault(),
-	// 					m_pCommBrush);
-	// 			}
-	// 		}
-
-	// 	}
-
-    //     //draw logo
-    //     if (m_pLogo)
-    //     {
-    //         ImageAttributes ImgAttr;
-    //         ColorMatrix ClrMatrix = { 
-    //                 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-    //                 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
-    //                 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
-    //                 0.0f, 0.0f, 0.0f, m_Config.m_LogoOpaque/(100.0f), 0.0f,
-    //                 0.0f, 0.0f, 0.0f, 0.0f, 1.0f
-    //         };
-    //         ImgAttr.SetColorMatrix(&ClrMatrix, ColorMatrixFlagsDefault, ColorAdjustTypeBitmap);
-    //         Rect    destination(m_Config.m_LogoX, m_Config.m_LogoY, m_pLogo->GetWidth(), m_pLogo->GetHeight());
-    //         status = graphics.DrawImage(m_pLogo, destination, 0, 0, m_pLogo->GetWidth(), m_pLogo->GetHeight(), UnitPixel, &ImgAttr);
-    //         if (status != Gdiplus::Status::Ok) {
-    //             // TODO: show message
-    //             FILE* pFile = fopen("log.txt", "a");
-    //             fprintf(pFile, "Status 1 %i\n", status);
-    //             fclose(pFile);
-    //             return;
-    //         }
-    //     }
-
-    //     int32 last_lap = m_LastSample.attribute("lapNumber").as_int();
-    //     int32 cur_lap = current_sample.attribute("lapNumber").as_int();
-
-    //     bool leg_position_found = false;
-
-    //     if (last_lap != cur_lap)
-    //     {
-    //         //rebuild leg data
-
-    //         //1. collect all image positions
-    //         m_LegPoints.clear();
-    //         m_LegTimes.clear();
-
-    //         pugi::xml_node sample = current_sample;
-    //         //find start of leg, remember leg position
-    //         m_LegPosition = 0;
-    //         leg_position_found = true;
-    //         while(!sample.previous_sibling().empty() && sample.previous_sibling().attribute("lapNumber").as_int() == cur_lap)
-    //         {
-    //             sample = sample.previous_sibling();
-    //             m_LegPosition++;
-    //         }
-    //         //add all leg points to array
-    //         while(!sample.empty() && sample.attribute("lapNumber").as_int() == cur_lap)
-    //         {
-    //             m_LegPoints.push_back(PointF(sample.attribute("imageX").as_int(), sample.attribute("imageY").as_int()));
-    //             m_LegTimes.push_back(sample.attribute("elapsedTime").as_double());
-    //             sample = sample.next_sibling();
-    //         }
-
-    //         //2. build matrix
-    //         int samples = m_LegPoints.size();
-    //         if (samples > 1)
-    //         {
-    //             PointF start(m_LegPoints[0].X, m_LegPoints[0].Y);
-    //             PointF end(m_LegPoints[samples-1].X, m_LegPoints[samples-1].Y);
-    //             PointF vector(end.X - start.X, end.Y - start.Y);
-            
-    //             if (fabs(vector.X) > 1 || fabs(vector.Y) > 1)
-    //             {
-	// 				PointF leg_center((end.X + start.X) / 2, (end.Y + start.Y) / 2);
-
-	// 				double vector_size = sqrt(vector.X*vector.X + vector.Y*vector.Y);
-
-	// 				double angle = atan2((double)(vector.Y), (double)(vector.X));
-    //                 double leg_direction = 90.0+180.0*(angle)/M_PI;
-
-    //                 delete m_pLegMatrix;
-    //                 m_pLegMatrix = new Matrix();
-    //                 m_pLegMatrix->RotateAt(-leg_direction, leg_center);
-
-    //                 //rotate test points
-    //                 std::vector<PointF> testArr = m_LegPoints;
-    //                 m_pLegMatrix->TransformPoints(testArr.data(), samples);
-
-    //                 //find bounds
-    //                 REAL left = testArr[0].X - leg_center.X;
-    //                 REAL top = testArr[0].Y - leg_center.Y;
-    //                 REAL right = left;
-    //                 REAL bottom = top;
-    //                 for(int i = 0; i < samples; i++)
-    //                 {
-    //                     left = min(left, testArr[i].X - leg_center.X);
-    //                     top = min(top, testArr[i].Y - leg_center.Y);
-    //                     right = max(right, testArr[i].X - leg_center.X);
-    //                     bottom = max(bottom, testArr[i].Y - leg_center.Y);
-    //                 }
-                
-    //                 double scale = (m_Config.m_LegHeight - m_Config.m_LegMargins*2)/vector_size;
-    //                 if (fabs(left) > 0.01)
-    //                 {
-    //                     scale = min(scale, (m_Config.m_LegWidth/2.0 - m_Config.m_LegMargins)/fabs(left));
-    //                 }
-    //                 if (fabs(right) > 0.01)
-    //                 {
-    //                     scale = min(scale, (m_Config.m_LegWidth/2.0 - m_Config.m_LegMargins)/fabs(right));
-    //                 }
-    //                 if (fabs(top) > 0.01)
-    //                 {
-    //                     scale = min(scale, (m_Config.m_LegHeight/2.0 - m_Config.m_LegMargins)/fabs(top));
-    //                 }
-    //                 if (fabs(bottom) > 0.01)
-    //                 {
-    //                     scale = min(scale, (m_Config.m_LegHeight/2.0 - m_Config.m_LegMargins)/fabs(bottom));
-    //                 }
-                    
-    //                 if (scale > 1)
-    //                 {
-    //                     scale = 1;
-    //                 }
-
-    //                 PointF view_center(m_Config.m_LegX + m_Config.m_LegWidth/2, m_Config.m_LegY + m_Config.m_LegHeight/2);
-
-    //                 m_pLegMatrix->Scale(scale, scale, MatrixOrderAppend);
-
-    //                 m_pLegMatrix->Translate(view_center.X-leg_center.X*scale, view_center.Y-leg_center.Y*scale, MatrixOrderAppend);
-
-    //                 m_pLegMatrix->TransformPoints(m_LegPoints.data(), samples);
-
-    //             }
-    //         }
-    //     }
-
-    //     //draw leg
-    //     if (m_pMap && m_LegPoints.size() > 1 && m_Config.m_LegOpaque > 0)
-    //     {
-    //         GraphicsState state = graphics.Save();
-            
-    //         //TODO: set clip by region
-    //         Rect clip_rect(m_Config.m_LegX, m_Config.m_LegY, m_Config.m_LegWidth, m_Config.m_LegHeight);
-    //         graphics.SetClip(clip_rect);
-
-    //         REAL t1[6];
-    //         m_pLegMatrix->GetElements(t1);
-    //         graphics.SetTransform(m_pLegMatrix);
-
-    //         ColorMatrix ClrMatrix = { 
-    //                 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-    //                 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
-    //                 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
-    //                 0.0f, 0.0f, 0.0f, m_Config.m_LegOpaque/(100.0f), 0.0f,
-    //                 0.0f, 0.0f, 0.0f, 0.0f, 1.0f
-    //         };
-    //         ImageAttributes ImgAttr;
-    //         ImgAttr.SetColorMatrix(&ClrMatrix, ColorMatrixFlagsDefault, ColorAdjustTypeBitmap);
-
-    //         Rect    destination(0, 0, m_pMap->GetWidth(), m_pMap->GetHeight());
-    //         status = graphics.DrawImage(m_pMap, destination, 0, 0, m_pMap->GetWidth(), m_pMap->GetHeight(), UnitPixel, &ImgAttr);
-    //         if (status != Gdiplus::Status::Ok) {
-    //             // TODO: show message
-    //             FILE* pFile = fopen("log.txt", "a");
-    //             fprintf(pFile, "Status 2 %i\n", status);
-    //             fclose(pFile);
-    //             return;
-    //         }
-
-    //         graphics.Restore(state);
-
-    //         if (!leg_position_found)
-    //         {
-    //             if (!m_LastSample.empty() && m_LastSample.next_sibling() == current_sample)
-    //             {
-    //                     m_LegPosition++;
-    //             }
-    //             else
-    //             {
-    //                 //find leg position
-    //                 m_LegPosition = 0;
-    //                 for(int i = 0; i < m_LegPoints.size() && m_LegTimes[i] < elapsed_time; i++, m_LegPosition++)
-    //                 {
-    //                     //TODO: binary search;
-    //                 }
-    //             }
-    //         }
-    //         if (m_LegPosition > 1) {
-    //             status = graphics.DrawLines(m_pPenLeg, m_LegPoints.data(), m_LegPosition);
-    //             if (status != Gdiplus::Status::Ok) {
-    //                 // TODO: show message
-    //                 FILE* pFile = fopen("log.txt", "a");
-    //                 fprintf(pFile, "Status 3 %i, size %i, pos %i\n", status, m_LegPoints.size(), m_LegPosition);
-    //                 fclose(pFile);
-    //                 return;
-    //             }
-    //         }
-    //     }
-
-    //     //draw current position
-    //     if (m_pMap && m_Config.m_PosWidth > 0 && m_Config.m_PosHeight > 0 && m_Config.m_PosOpaque > 0)
-    //     {
-    //         GraphicsState state = graphics.Save();
-
-    //         int32 image_x = current_sample.attribute("imageX").as_int();
-    //         int32 image_y = current_sample.attribute("imageY").as_int();
-    //         double head_direction = current_sample.attribute("direction").as_double();
-
-    //         //TODO: clip by region
-    //         Rect clip_rect(m_Config.m_PosX, m_Config.m_PosY, m_Config.m_PosWidth, m_Config.m_PosHeight);
-    //         graphics.SetClip(clip_rect);
-
-    //         Matrix rotate_at_map;
-    //         PointF center(m_Config.m_PosX + m_Config.m_PosWidth/2, m_Config.m_PosY + m_Config.m_PosHeight/2);
-    //         PointF image_pos(image_x, image_y);
-    //         rotate_at_map.RotateAt(-head_direction, image_pos);
-    //         rotate_at_map.Translate(center.X-image_x, center.Y-image_y, MatrixOrderAppend);
-    //         graphics.SetTransform(&rotate_at_map);
-
-    //         ColorMatrix ClrMatrix = { 
-    //                 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-    //                 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
-    //                 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
-    //                 0.0f, 0.0f, 0.0f, m_Config.m_PosOpaque/(100.0f), 0.0f,
-    //                 0.0f, 0.0f, 0.0f, 0.0f, 1.0f
-    //         };
-    //         ImageAttributes ImgAttr;
-    //         ImgAttr.SetColorMatrix(&ClrMatrix, ColorMatrixFlagsDefault, ColorAdjustTypeBitmap);
-
-    //         Rect    destination(0, 0, m_pMap->GetWidth(), m_pMap->GetHeight());
-    //         status = graphics.DrawImage(m_pMap, destination, 0, 0, m_pMap->GetWidth(), m_pMap->GetHeight(), UnitPixel, &ImgAttr);
-    //         if (status != Status::Ok) {
-    //             // TODO: show message
-    //             FILE* pFile = fopen("log.txt", "a");
-    //             fprintf(pFile, "Status 4 %i\n", status);
-    //             fclose(pFile);
-    //             return;
-    //         }
-
-    //         //draw tail
-    //         {
-    //             int tail = m_Config.m_PosTail;
-    //             int last_x = image_x;
-    //             int last_y = image_y;
-    //             pugi::xml_node sample = current_sample.previous_sibling();
-    //             while(tail-- > 0)
-    //             {
-    //                 if (sample.empty())
-    //                 {
-    //                     break;
-    //                 }
-    //                 int new_img_x = sample.attribute("imageX").as_int();
-    //                 int new_img_y = sample.attribute("imageY").as_int();
-    //                 graphics.DrawLine(m_pPenTail, last_x, last_y, new_img_x, new_img_y);
-    //                 last_x = new_img_x;
-    //                 last_y = new_img_y;
-    //                 sample = sample.previous_sibling();
-    //             }
-    //         }
-
-    //         graphics.Restore(state);
-
-    //         //draw pointer
-    //         {
-    //             ImageAttributes ImgAttr;
-    //             ColorMatrix ClrMatrix = { 
-    //                     1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
-    //                     0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
-    //                     0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
-    //                     0.0f, 0.0f, 0.0f, m_Config.m_PointerOpaque/(100.0f), 0.0f,
-    //                     0.0f, 0.0f, 0.0f, 0.0f, 1.0f
-    //             };
-    //             ImgAttr.SetColorMatrix(&ClrMatrix, ColorMatrixFlagsDefault, ColorAdjustTypeBitmap);
-    //             Rect    destination(m_Config.m_PosX + m_Config.m_PosWidth/2 - m_pPointer->GetWidth()/2, m_Config.m_PosY + m_Config.m_PosHeight/2 - m_pPointer->GetHeight()/2, m_pPointer->GetWidth(), m_pPointer->GetHeight());
-    //             status = graphics.DrawImage(m_pPointer, destination, 0, 0, m_pPointer->GetWidth(), m_pPointer->GetHeight(), UnitPixel, &ImgAttr);
-    //             if (status != Status::Ok) {
-    //                 // TODO: show message
-    //                 FILE* pFile = fopen("log.txt", "a");
-    //                 fprintf(pFile, "Status 5 %i\n", status);
-    //                 fclose(pFile);
-    //                 return;
-    //             }
-    //         }
-    //     }
-    //     m_LastSample = current_sample;
-    // }
-
-    // //draw last bitmap
-    // if (m_pLastBmp)
-    // {
-    //     Gdiplus::Graphics gr_to(pbmp);
-    //     gr_to.DrawImage(m_pLastBmp, 0, 0);
-    // }
-
     return;
 }
 
@@ -1560,4 +1242,4 @@ void RouteFilter::GetScriptString(char *buf, int maxlen)
 
 ///////////////////////////////////////////////////////////////////////////////
 
-extern VDXFilterDefinition filterDef_RouteAdd = VDXVideoFilterDefinition<RouteFilter>("Vorfol", "Route add", "Add route.");
+extern VDXFilterDefinition filterDef_RouteAdd = VDXVideoFilterDefinition<RouteFilter>("Vorfol", "Add Route", "Add route.");

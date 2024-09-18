@@ -17,7 +17,7 @@
 #undef APSTUDIO_READONLY_SYMBOLS
 
 /////////////////////////////////////////////////////////////////////////////
-// Русский (Россия) resources
+// пїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅ) resources
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_RUS)
 LANGUAGE LANG_RUSSIAN, SUBLANG_DEFAULT
@@ -30,12 +30,12 @@ LANGUAGE LANG_RUSSIAN, SUBLANG_DEFAULT
 
 IDD_FILTER_ROUTE_DLG DIALOGEX 0, 0, 317, 57
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
-CAPTION "Route add"
+CAPTION "Add Route"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
-    DEFPUSHBUTTON   "ОК",IDOK,205,36,50,14
-    PUSHBUTTON      "Отмена",IDCANCEL,260,36,50,14
-    LTEXT           "Настройки",IDC_STATIC,7,9,37,8
+    DEFPUSHBUTTON   "пїЅпїЅ",IDOK,205,36,50,14
+    PUSHBUTTON      "пїЅпїЅпїЅпїЅпїЅпїЅ",IDCANCEL,260,36,50,14
+    LTEXT           "пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ",IDC_STATIC,7,9,37,8
     EDITTEXT        IDC_FILE,50,7,207,14,ES_AUTOHSCROLL | ES_READONLY
     PUSHBUTTON      "Browse",IDC_BROWSE,260,7,50,14
 END
@@ -59,12 +59,12 @@ BEGIN
 END
 #endif    // APSTUDIO_INVOKED
 
-#endif    // Русский (Россия) resources
+#endif    // пїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅ) resources
 /////////////////////////////////////////////////////////////////////////////
 
 
 /////////////////////////////////////////////////////////////////////////////
-// Английский (США) resources
+// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅ) resources
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
 LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
@@ -141,7 +141,7 @@ BEGIN
 END
 #endif    // APSTUDIO_INVOKED
 
-#endif    // Английский (США) resources
+#endif    // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅ) resources
 /////////////////////////////////////////////////////////////////////////////
 
 

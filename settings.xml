@@ -69,8 +69,8 @@
 			<Value>main</Value>
 		</Pane>
 		<Pane type="text" name="comment_1" x="300" y="600" w="600" h="100" opaq="100">
-			<Start>01:00</Start>
-			<End>01:10</End>
+			<Start>00:10</Start>
+			<Duration>00:15</Duration>
 			<FillColor>80505050</FillColor>
 			<FontName>Arial</FontName>
 			<FontColor>ffffffff</FontColor>

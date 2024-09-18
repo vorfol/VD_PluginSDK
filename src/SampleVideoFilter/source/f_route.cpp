@@ -228,6 +228,11 @@ BasePane* FillBasePane(BasePane *pPane, pugi::xml_node &node) {
         pugi::xml_node end_node = node.child("End");
         if (!end_node.empty()) {
             pPane->End = fromString<time_t>(end_node.child_value());
+        } else {
+            pugi::xml_node duration_node = node.child("Duration");
+            if (!duration_node.empty()) {
+                pPane->End = pPane->Start + fromString<time_t>(duration_node.child_value());
+            }
         }
     }
     return pPane;
@@ -1096,6 +1101,30 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
                             }
                             delete pPenTail;
                         }
+                    }
+                } else if (pPane->Type == PaneType::Text) {
+                    //draw leg
+                    TextPane* pTextPane = (TextPane*)pPane;
+                    std::wstring out_string;
+                    if (pTextPane->TextType == Comment) {
+                        out_string = pugi::as_wide(pTextPane->Value);
+                    } else {
+                        PathState &PathState = m_PathStates[pTextPane->Value];
+                        if (&PathState != nullptr) {
+                        }
+                    }
+                    if (!out_string.empty()) {
+                        Gdiplus::Brush *pFillBrush = new Gdiplus::SolidBrush(pTextPane->FillColor);
+                        graphics.FillRectangle(pFillBrush, pTextPane->X, pTextPane->Y, pTextPane->W, pTextPane->H);
+                        delete pFillBrush;
+                        Gdiplus::Brush *pTextBrush = new Gdiplus::SolidBrush(pTextPane->FontColor);
+                        Gdiplus::Font  *pTextFont = new Gdiplus::Font(pugi::as_wide(pTextPane->FontName).c_str(), pTextPane->FontSize);
+                        graphics.DrawString(out_string.c_str(), out_string.length(),
+                            pTextFont,
+                            Gdiplus::PointF(pTextPane->X, pTextPane->Y),
+                            pTextBrush);
+                        delete pTextFont;
+                        delete pTextBrush;
                     }
                 }
             }

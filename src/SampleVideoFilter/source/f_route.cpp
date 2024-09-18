@@ -1165,7 +1165,7 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
                                     wsprintfW(wstr, L"%i", hr_attr.as_int());
                                 }
                             } else if (pTextPane->TextType == TextType::Pace) {
-                                pugi::xml_attribute pace_attr = PathState.currentSample.attribute("heartRate");
+                                pugi::xml_attribute pace_attr = PathState.currentSample.attribute("pace");
                                 if (!pace_attr.empty()) {
                                     int pace = pace_attr.as_int();
                                     wsprintfW(wstr, L"%i'%02i", pace / 60, pace % 60);

@@ -1128,9 +1128,26 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
                         delete pFillBrush;
                         Gdiplus::Brush *pTextBrush = new Gdiplus::SolidBrush(pTextPane->FontColor);
                         Gdiplus::Font  *pTextFont = new Gdiplus::Font(pugi::as_wide(pTextPane->FontName).c_str(), pTextPane->FontSize);
-                        graphics.DrawString(out_string.c_str(), out_string.length(),
+                        Gdiplus::RectF rc(pTextPane->X, pTextPane->Y, pTextPane->W, pTextPane->H);
+                        Gdiplus::StringFormat *pFormat = Gdiplus::StringFormat::GenericDefault()->Clone();
+                        switch(pTextPane->Align) {
+                            case TextAlignment::Center:
+                                pFormat->SetAlignment(Gdiplus::StringAlignment::StringAlignmentCenter);
+                                break;
+                            case TextAlignment::Left:
+                                pFormat->SetAlignment(Gdiplus::StringAlignment::StringAlignmentNear);
+                                break;
+                            case TextAlignment::Right:
+                                pFormat->SetAlignment(Gdiplus::StringAlignment::StringAlignmentFar);
+                                break;
+                            default:
+                                break;
+                        }
+                        graphics.DrawString(
+                            out_string.c_str(), out_string.length(),
                             pTextFont,
-                            Gdiplus::PointF(pTextPane->X, pTextPane->Y),
+                            rc,
+                            pFormat,
                             pTextBrush);
                         delete pTextFont;
                         delete pTextBrush;

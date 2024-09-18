@@ -35,46 +35,46 @@
 			<TailWidth>8</TailWidth>
 			<TailColor>60ff0000</TailColor>
 		</Pane>
-		<Pane type="text" name="time" x="0" y="0" w="200" h="30">
+		<Pane type="text" name="time" x="0" y="0" w="400" h="60">
 			<Start>00:00</Start>
 			<End>00:00</End>
 			<FillColor>80505050</FillColor>
-			<FontName>Arial</FontName>
+			<FontName>Consolas</FontName>
 			<FontColor>ffffffff</FontColor>
-			<FontSize>16</FontSize>
-			<Align>Left</Align>
+			<FontSize>32</FontSize>
+			<Align>Right</Align>
 			<TextType>Time</TextType>
 			<Value>main</Value>
 		</Pane>
-		<Pane type="text" name="pace" x="0" y="30" w="200" h="30">
+		<Pane type="text" name="pace" x="0" y="60" w="400" h="60">
 			<Start>00:00</Start>
 			<End>00:00</End>
 			<FillColor>80505050</FillColor>
-			<FontName>Arial</FontName>
+			<FontName>Consolas</FontName>
 			<FontColor>ffffffff</FontColor>
-			<FontSize>16</FontSize>
-			<Align>Left</Align>
+			<FontSize>32</FontSize>
+			<Align>Right</Align>
 			<TextType>Pace</TextType>
 			<Value>main</Value>
 		</Pane>
-		<Pane type="text" name="hr" x="0" y="60" w="200" h="30">
+		<Pane type="text" name="hr" x="0" y="120" w="400" h="60">
 			<Start>00:00</Start>
 			<End>00:00</End>
 			<FillColor>80505050</FillColor>
-			<FontName>Arial</FontName>
+			<FontName>Consolas</FontName>
 			<FontColor>ffffffff</FontColor>
-			<FontSize>16</FontSize>
-			<Align>Left</Align>
+			<FontSize>32</FontSize>
+			<Align>Right</Align>
 			<TextType>HR</TextType>
 			<Value>main</Value>
 		</Pane>
-		<Pane type="text" name="comment_1" x="300" y="600" w="600" h="100" opaq="100">
-			<Start>00:10</Start>
+		<Pane type="text" name="comment_1" x="1200" y="100" w="800" h="100">
+			<Start>00:05</Start>
 			<Duration>00:15</Duration>
 			<FillColor>80505050</FillColor>
-			<FontName>Arial</FontName>
+			<FontName>Consolas</FontName>
 			<FontColor>ffffffff</FontColor>
-			<FontSize>16</FontSize>
+			<FontSize>50</FontSize>
 			<Align>Center</Align>
 			<TextType>Comment</TextType>
 			<Value>Hi!</Value>

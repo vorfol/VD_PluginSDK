@@ -549,7 +549,7 @@ public:
     int                             legPosition;
     Gdiplus::Matrix                *pLegMatrix; // without scale
     std::vector<Gdiplus::PointF>    legPoints;
-    std::vector<double>             legTimes;
+    std::vector<int>                legTimes;
     double                          vectorSize;
     Gdiplus::REAL                   left;
     Gdiplus::REAL                   top;
@@ -794,7 +794,7 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
             PathState.currentSample = PathState.pPath->child("Route").child("Segment").first_child();
         }
         //go forward
-        double elapsed_time = PathState.currentSample.attribute("elapsedTime").as_double();
+        int elapsed_time = PathState.currentSample.attribute("elapsedTime").as_int();
         while(time_run > elapsed_time*1000) {
             PathState.currentSample = PathState.currentSample.next_sibling();
             if (PathState.currentSample.empty()) {
@@ -802,12 +802,12 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
                 PathState.currentSample = PathState.pPath->child("Route").child("Segment").last_child();
                 break;
             }
-            elapsed_time = PathState.currentSample.attribute("elapsedTime").as_double();
+            elapsed_time = PathState.currentSample.attribute("elapsedTime").as_int();
         }
         //go to previous sample
         if (!PathState.currentSample.previous_sibling().empty()) {
             PathState.currentSample = PathState.currentSample.previous_sibling();
-            elapsed_time = PathState.currentSample.attribute("elapsedTime").as_double();
+            elapsed_time = PathState.currentSample.attribute("elapsedTime").as_int();
         }
         //go backward
         while(time_run < elapsed_time*1000) {
@@ -817,7 +817,7 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
                 PathState.currentSample = PathState.pPath->child("Route").child("Segment").first_child();;
                 break;
             }
-            elapsed_time = PathState.currentSample.attribute("elapsedTime").as_double();
+            elapsed_time = PathState.currentSample.attribute("elapsedTime").as_int();
         }
     
         refreshImages |= (PathState.currentSample != last_sample);
@@ -840,7 +840,7 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
             //add all leg points to array
             while(!sample.empty() && sample.attribute("lapNumber").as_int() == PathState.currentLap) {
                 PathState.legPoints.push_back(Gdiplus::PointF(sample.attribute("imageX").as_int(), sample.attribute("imageY").as_int()));
-                PathState.legTimes.push_back(sample.attribute("elapsedTime").as_double());
+                PathState.legTimes.push_back(sample.attribute("elapsedTime").as_int());
                 sample = sample.next_sibling();
             }
 
@@ -1106,11 +1106,20 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
                     //draw leg
                     TextPane* pTextPane = (TextPane*)pPane;
                     std::wstring out_string;
-                    if (pTextPane->TextType == Comment) {
+                    if (pTextPane->TextType == TextType::Comment) {
                         out_string = pugi::as_wide(pTextPane->Value);
                     } else {
                         PathState &PathState = m_PathStates[pTextPane->Value];
                         if (&PathState != nullptr) {
+                            WCHAR wstr[256];
+                            if (pTextPane->TextType == TextType::Time) {
+                                int elapsedTime = PathState.currentSample.attribute("elapsedTime").as_int();
+                                uint32 hour = elapsedTime / 3600;
+                                uint32 min = (elapsedTime % 3600) / 60;
+                                uint32 sec = elapsedTime % 60;
+                                wsprintfW(wstr, L"%02i:%02i'%02i", hour, min, sec);
+                                out_string = wstr;
+                            }
                         }
                     }
                     if (!out_string.empty()) {

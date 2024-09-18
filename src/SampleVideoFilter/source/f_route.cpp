@@ -1111,15 +1111,20 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
                     } else {
                         PathState &PathState = m_PathStates[pTextPane->Value];
                         if (&PathState != nullptr) {
-                            WCHAR wstr[256];
+                            WCHAR wstr[256] = {0};
                             if (pTextPane->TextType == TextType::Time) {
                                 int elapsedTime = PathState.currentSample.attribute("elapsedTime").as_int();
                                 uint32 hour = elapsedTime / 3600;
                                 uint32 min = (elapsedTime % 3600) / 60;
                                 uint32 sec = elapsedTime % 60;
                                 wsprintfW(wstr, L"%02i:%02i'%02i", hour, min, sec);
-                                out_string = wstr;
+                            } else if (pTextPane->TextType == TextType::HR) {
+                                wsprintfW(wstr, L"%i", PathState.currentSample.attribute("heartRate").as_int());
+                            } else if (pTextPane->TextType == TextType::Pace) {
+                                int pace = PathState.currentSample.attribute("pace").as_int();
+                                wsprintfW(wstr, L"%i'%02i", pace / 60, pace % 60);
                             }
+                            out_string = wstr;
                         }
                     }
                     if (!out_string.empty()) {

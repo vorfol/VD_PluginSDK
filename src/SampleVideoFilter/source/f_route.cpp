@@ -982,7 +982,7 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
 
                     double head_direction = 0;
                     if (!PathState.currentSample.attribute("direction").empty()) {
-                        PathState.currentSample.attribute("direction").as_double();
+                        head_direction = PathState.currentSample.attribute("direction").as_double();
                     }
 
                     // Next transformations are both for the image and the tail

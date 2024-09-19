@@ -122,9 +122,9 @@ public:
 	
     std::map<std::string, std::string>  m_Paths;        // [name] = xml path
 
-    std::map<std::string, BasePane*>   m_Panes;        // [name] = pane
+    std::map<std::string, BasePane*>    m_Panes;        // [name] = pane
 
-    time_t                              m_VideoStart;   // start of the video in GMT
+    std::map<time_t, time_t>            m_Videos;       // [video time] = real time
 
 };
 
@@ -372,8 +372,13 @@ bool RouteFilterConfig::FromXml(pugi::xml_document &doc)
 {
     pugi::xml_node settings = doc.child("RouteAddSettings");
 
-    pugi::xml_node video_node = settings.child("Video");
-    m_VideoStart = fromString<time_t>(video_node.attribute("start").as_string());
+    pugi::xml_node videos_node = settings.child("Videos");
+	m_Videos.clear();
+	pugi::xml_node video_node = videos_node.child("Video");
+	while (!video_node.empty())	{
+        m_Videos[fromString<time_t>(video_node.attribute("start").as_string())] = fromString<time_t>(video_node.attribute("time").as_string());
+		video_node = video_node.next_sibling();
+	}
 
     pugi::xml_node images_node = settings.child("Images");
 	m_Images.clear();
@@ -823,7 +828,12 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
     // Recalculate paths
     for (auto it = m_PathStates.begin(); it != m_PathStates.end(); ++it) {
         PathState &PathState = it->second;
-        int64 time_run = ms + 1000 * (m_Config.m_VideoStart - PathState.startTime);
+        time_t videoStart = 0;
+        auto videoIt = m_Config.m_Videos.lower_bound(ms/1000);
+        if (videoIt != m_Config.m_Videos.begin()) {
+            --videoIt;
+        }
+        int64 time_run = ms + 1000 * (videoIt->second - PathState.startTime);
         if (time_run < 0) {
             time_run = 0;
         }

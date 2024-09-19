@@ -828,12 +828,13 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
     // Recalculate paths
     for (auto it = m_PathStates.begin(); it != m_PathStates.end(); ++it) {
         PathState &PathState = it->second;
-        time_t videoStart = 0;
+        time_t realTime = 0;
         auto videoIt = m_Config.m_Videos.lower_bound(ms/1000);
         if (videoIt != m_Config.m_Videos.begin()) {
             --videoIt;
         }
-        int64 time_run = ms + 1000 * (videoIt->second - PathState.startTime);
+        realTime = videoIt->second * 1000 + (ms - videoIt->first * 1000);
+        int64 time_run = realTime - PathState.startTime * 1000;
         if (time_run < 0) {
             time_run = 0;
         }

@@ -1031,14 +1031,14 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
         }
     }
 
+    Gdiplus::Status status;
+
     if (do_refresh) {
 
         // Create new if needed
         if (!m_pLastBmp) {
             m_pLastBmp = new Gdiplus::Bitmap(pbmp->GetWidth(), pbmp->GetHeight(), PixelFormat32bppARGB);
         }
-
-        Gdiplus::Status status;
 
         // Craw into bitmap
         Gdiplus::Graphics graphics(m_pLastBmp);
@@ -1326,7 +1326,12 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
     // Draw last bitmap for each frame
     if (m_pLastBmp) {
         Gdiplus::Graphics gr_to(pbmp);
-        gr_to.DrawImage(m_pLastBmp, 0, 0);
+        status = gr_to.DrawImage(m_pLastBmp, 0, 0);
+        if (status != Status::Ok) {
+            FILE* pFile = fopen("log.txt", "a");
+            fprintf(pFile, "Status draw layer => %i at %d\n", status, ms / 1000);
+            fclose(pFile);
+        }
     }
 
     return;

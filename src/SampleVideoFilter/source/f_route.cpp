@@ -579,6 +579,19 @@ bool RouteFilterDialog::OnCommand(int cmd) {
 
 struct PathState {
 public:
+    PathState() {
+        pPath = nullptr;
+        startTime = 0;
+        pugi::xml_node e;
+        lastSample = e;
+        currentSample = e;
+        currentLap = -1;
+        legPosition = -1;
+        pLegMatrix = nullptr;
+        vectorSize = 1.0;
+        left = top = right = bottom = 0;
+        legCenter.X = legCenter.Y = 0;
+    };
     pugi::xml_document             *pPath;
     time_t                          startTime;
     pugi::xml_node                  lastSample;
@@ -598,6 +611,11 @@ public:
 
 struct RoutePaneState {
 public:
+    RoutePaneState() {
+        visible = false;
+        currentLap = -1;
+        pLegMatrix = nullptr;
+    };
     bool                            visible;
     int                             currentLap;
     std::vector<Gdiplus::PointF>    legPoints;

@@ -104,6 +104,7 @@ public:
     Gdiplus::Color  TailColor;
     std::string     Pointer;        // name
     int             PointerOpaque;  // 0-100
+    float           MaxScale;
 };
 
 class RouteFilterConfig 
@@ -377,6 +378,12 @@ BasePane* FillRoutePane(RoutePane *pPane, pugi::xml_node &node) {
     pugi::xml_node opaque_node = node.child("PointerOpaque");
     if (!opaque_node.empty()) {
         pPane->PointerOpaque = fromString<int>(opaque_node.child_value());
+    }
+    
+    pPane->MaxScale = 1.0;
+    pugi::xml_node scale_node = node.child("MaxScale");
+    if (!scale_node.empty()) {
+        pPane->MaxScale = fromString<float>(scale_node.child_value());
     }
 
     return FillImagePane(pPane, node);
@@ -1129,7 +1136,8 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
                     Gdiplus::PointF center(X + W/2, Y + H/2);
                     Gdiplus::PointF image_pos(image_x, image_y);
                     rotate_at_map.RotateAt(-head_direction, image_pos);
-                    rotate_at_map.Translate(center.X-image_x, center.Y-image_y, Gdiplus::MatrixOrderAppend);
+                    rotate_at_map.Scale(pRoutePane->MaxScale, pRoutePane->MaxScale, Gdiplus::MatrixOrderAppend);
+                    rotate_at_map.Translate(center.X - image_x * pRoutePane->MaxScale, center.Y - image_y * pRoutePane->MaxScale, Gdiplus::MatrixOrderAppend);
                     graphics.SetTransform(&rotate_at_map);
 
                     Gdiplus::ColorMatrix ClrMatrix = { 
@@ -1218,8 +1226,10 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
                         if (fabs(PathState.bottom) > 0.01) {
                             scale = min(scale, (H/2.0 - pRoutePane->Margins)/fabs(PathState.bottom));
                         }
-                        if (scale > 1 || scale < 0.001) {
-                            scale = 1;
+                        if (scale > pRoutePane->MaxScale) {
+                            scale = pRoutePane->MaxScale;
+                        } else if (scale < 0.01) {
+                            scale = 0.01;
                         }
                         RoutePaneState.legPoints = PathState.legPoints;
                         Gdiplus::PointF view_center(X + W/2, Y + H/2);

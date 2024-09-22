@@ -218,8 +218,22 @@ BasePane* FillBasePane(BasePane *pPane, pugi::xml_node &node) {
         } else {
             pPane->Name = node.attribute("name").as_string();
         }
-        pPane->X = node.attribute("x").as_int();
-        pPane->Y = node.attribute("y").as_int();
+        pPane->X = 0;
+        if (!node.attribute("x").empty()) {
+            if (std::string("right") == node.attribute("x").as_string()) {
+                pPane->X = INT_MAX;
+            } else {
+                pPane->X = node.attribute("x").as_int();
+            }
+        }
+        pPane->Y = 0;
+        if (!node.attribute("y").empty()) {
+            if (std::string("bottom") == node.attribute("y").as_string()) {
+                pPane->Y = INT_MAX;
+            } else {
+                pPane->Y = node.attribute("y").as_int();
+            }
+        }
         if (node.attribute("w").empty()) {
             pPane->W = 0;    
         } else {
@@ -1082,12 +1096,22 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
                 int H = pPane->H;
                 // Scale if pane desired size does not equal video size
                 if (m_Config.m_PaneWidth && m_Config.m_PaneWidth != m_pLastBmp->GetWidth()) {
-                    X = X * m_pLastBmp->GetWidth() / m_Config.m_PaneWidth;
                     W = W * m_pLastBmp->GetWidth() / m_Config.m_PaneWidth;
+                    if (X != INT_MAX) {
+                        X = X * m_pLastBmp->GetWidth() / m_Config.m_PaneWidth;
+                    }
                 }
                 if (m_Config.m_PaneHeight && m_Config.m_PaneHeight != m_pLastBmp->GetHeight()) {
-                    Y = Y * m_pLastBmp->GetHeight() / m_Config.m_PaneHeight;
                     H = H * m_pLastBmp->GetHeight() / m_Config.m_PaneHeight;
+                    if (Y != INT_MAX) {
+                        Y = Y * m_pLastBmp->GetHeight() / m_Config.m_PaneHeight;
+                    }
+                }
+                if (X == INT_MAX) {
+                    X = m_pLastBmp->GetWidth() - W;
+                }
+                if (Y == INT_MAX) {
+                    Y = m_pLastBmp->GetHeight() - H;
                 }
                 if (pPane->Type == PaneType::Image) {
                     Gdiplus::Bitmap *pImage = m_Images[((ImagePane*)pPane)->ImageName];
@@ -1101,7 +1125,25 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
                                 0.0f, 0.0f, 0.0f, 0.0f, 1.0f
                         };
                         ImgAttr.SetColorMatrix(&ClrMatrix, Gdiplus::ColorMatrixFlagsDefault, Gdiplus::ColorAdjustTypeBitmap);
-                        Gdiplus::Rect    destination(X, Y, W ? W : pImage->GetWidth(), H ? H : pImage->GetHeight());
+                        if (W == 0) {
+                            W = pImage->GetWidth();
+                            if (m_Config.m_PaneWidth && m_Config.m_PaneWidth != m_pLastBmp->GetWidth()) {
+                                W = W * m_pLastBmp->GetWidth() / m_Config.m_PaneWidth;
+                            }
+                            if (pPane->X == INT_MAX) {
+                                X = m_pLastBmp->GetWidth() - W;
+                            }
+                        }
+                        if (H == 0) {
+                            H = pImage->GetHeight();
+                            if (m_Config.m_PaneHeight && m_Config.m_PaneHeight != m_pLastBmp->GetHeight()) {
+                                H = H * m_pLastBmp->GetHeight() / m_Config.m_PaneHeight;
+                            }                        
+                            if (pPane->Y == INT_MAX) {
+                                Y = m_pLastBmp->GetHeight() - H;
+                            }
+                        }
+                        Gdiplus::Rect    destination(X, Y, W, H);
                         status = graphics.DrawImage(pImage, destination, 0, 0, pImage->GetWidth(), pImage->GetHeight(), Gdiplus::UnitPixel, &ImgAttr);
                         if (status != Status::Ok) {
                             FILE* pFile = fopen("log.txt", "a");
@@ -1195,7 +1237,7 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
                         };
                         ImgAttr.SetColorMatrix(&ClrMatrix, Gdiplus::ColorMatrixFlagsDefault, Gdiplus::ColorAdjustTypeBitmap);
                         Gdiplus::Rect    destination(X + W/2 - pPointer->GetWidth()/2, 
-                                                        Y + H/2 - pPointer->GetHeight()/2,
+                                                     Y + H/2 - pPointer->GetHeight()/2,
                                                     pPointer->GetWidth(), pPointer->GetHeight());
                         status = graphics.DrawImage(pPointer, destination, 0, 0, pPointer->GetWidth(), pPointer->GetHeight(), UnitPixel, &ImgAttr);
                         if (status != Status::Ok) {
@@ -1321,7 +1363,11 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
                         graphics.FillRectangle(pFillBrush, X, Y, W, H);
                         delete pFillBrush;
                         Gdiplus::Brush *pTextBrush = new Gdiplus::SolidBrush(pTextPane->FontColor);
-                        Gdiplus::Font  *pTextFont = new Gdiplus::Font(pugi::as_wide(pTextPane->FontName).c_str(), pTextPane->FontSize);
+                        int fontSize = pTextPane->FontSize;
+                        if (m_Config.m_PaneHeight && m_Config.m_PaneHeight != m_pLastBmp->GetHeight()) {
+                            fontSize = fontSize * m_pLastBmp->GetHeight() / m_Config.m_PaneHeight;
+                        }
+                        Gdiplus::Font  *pTextFont = new Gdiplus::Font(pugi::as_wide(pTextPane->FontName).c_str(), fontSize);
                         Gdiplus::RectF rc(X, Y, W, H);
                         Gdiplus::StringFormat *pFormat = Gdiplus::StringFormat::GenericDefault()->Clone();
                         switch(pTextPane->Align) {

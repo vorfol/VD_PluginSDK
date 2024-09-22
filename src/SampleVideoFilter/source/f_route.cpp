@@ -1204,23 +1204,25 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
                     }
 
                     //draw tail
-                    Gdiplus::Pen *pPenTail = new Gdiplus::Pen(pRoutePane->TailColor, pRoutePane->TailWidth);
-                    int tail = pRoutePane->Tail;
-                    int last_x = image_x;
-                    int last_y = image_y;
-                    pugi::xml_node sample = PathState.currentSample.previous_sibling();
-                    while(tail-- > 0) {
-                        if (sample.empty()) {
-                            break;
+                    if (pRoutePane->TailColor.GetAlpha() != 0) {
+                        Gdiplus::Pen *pPenTail = new Gdiplus::Pen(pRoutePane->TailColor, pRoutePane->TailWidth);
+                        int tail = pRoutePane->Tail;
+                        int last_x = image_x;
+                        int last_y = image_y;
+                        pugi::xml_node sample = PathState.currentSample.previous_sibling();
+                        while(tail-- > 0) {
+                            if (sample.empty()) {
+                                break;
+                            }
+                            int new_img_x = sample.attribute("imageX").as_int();
+                            int new_img_y = sample.attribute("imageY").as_int();
+                            graphics.DrawLine(pPenTail, last_x, last_y, new_img_x, new_img_y);
+                            last_x = new_img_x;
+                            last_y = new_img_y;
+                            sample = sample.previous_sibling();
                         }
-                        int new_img_x = sample.attribute("imageX").as_int();
-                        int new_img_y = sample.attribute("imageY").as_int();
-                        graphics.DrawLine(pPenTail, last_x, last_y, new_img_x, new_img_y);
-                        last_x = new_img_x;
-                        last_y = new_img_y;
-                        sample = sample.previous_sibling();
+                        delete pPenTail;
                     }
-                    delete pPenTail;
 
                     graphics.Restore(state);
 
@@ -1316,15 +1318,17 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
                     // LegPoints are already transformed
                     if (RoutePaneState.legPoints.size() > 1) {
                         if (PathState.legPosition > 1) {
-                            Gdiplus::Pen *pPenTail = new Gdiplus::Pen(pRoutePane->TailColor, pRoutePane->TailWidth);
-                            status = graphics.DrawLines(pPenTail, RoutePaneState.legPoints.data(), PathState.legPosition);
-                            if (status != Gdiplus::Status::Ok) {
-                                FILE* pFile = fopen("log.txt", "a");
-                                fprintf(pFile, "Status draw Leg \"%s\" points => %i, size %i, pos %i, at %d\n", 
-                                    pRoutePane->Name.c_str(), status, RoutePaneState.legPoints.size(), PathState.legPosition, ms / 1000);
-                                fclose(pFile);
+                            if (pRoutePane->TailColor.GetAlpha() != 0) {
+                                Gdiplus::Pen *pPenTail = new Gdiplus::Pen(pRoutePane->TailColor, pRoutePane->TailWidth);
+                                status = graphics.DrawLines(pPenTail, RoutePaneState.legPoints.data(), PathState.legPosition);
+                                if (status != Gdiplus::Status::Ok) {
+                                    FILE* pFile = fopen("log.txt", "a");
+                                    fprintf(pFile, "Status draw Leg \"%s\" points => %i, size %i, pos %i, at %d\n", 
+                                        pRoutePane->Name.c_str(), status, RoutePaneState.legPoints.size(), PathState.legPosition, ms / 1000);
+                                    fclose(pFile);
+                                }
+                                delete pPenTail;
                             }
-                            delete pPenTail;
                         }
                     }
                 } else if (pPane->Type == PaneType::Text) {

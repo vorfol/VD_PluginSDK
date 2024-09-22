@@ -88,6 +88,7 @@ public:
     TextAlignment   Align;
     TextType        TextType;
     std::string     Value;  // Text for comment type, XML path for other types
+    time_t          Avg;
 };
 
 struct ImagePane : public BasePane {
@@ -326,6 +327,12 @@ BasePane* FillTextPane(TextPane *pPane, pugi::xml_node &node) {
     pugi::xml_node value_node = node.child("Value");
     if (!value_node.empty()) {
         pPane->Value = value_node.child_value();
+    }
+
+    pPane->Avg = 0;
+    pugi::xml_node avg_node = node.child("Avg");
+    if (!avg_node.empty()) {
+        pPane->Avg = fromString<time_t>(avg_node.child_value());
     }
 
     return FillBasePane(pPane, node);
@@ -1205,23 +1212,19 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
 
                     //draw tail
                     if (pRoutePane->TailColor.GetAlpha() != 0) {
-                        Gdiplus::Pen *pPenTail = new Gdiplus::Pen(pRoutePane->TailColor, pRoutePane->TailWidth);
-                        int tail = pRoutePane->Tail;
-                        int last_x = image_x;
-                        int last_y = image_y;
+                        int curElapsedTime = PathState.currentSample.attribute("elapsedTimeFromStart").as_int();
+                        std::vector<Gdiplus::PointF> points;
+                        points.emplace_back(image_x, image_y);
                         pugi::xml_node sample = PathState.currentSample.previous_sibling();
-                        while(tail-- > 0) {
-                            if (sample.empty()) {
-                                break;
-                            }
-                            int new_img_x = sample.attribute("imageX").as_int();
-                            int new_img_y = sample.attribute("imageY").as_int();
-                            graphics.DrawLine(pPenTail, last_x, last_y, new_img_x, new_img_y);
-                            last_x = new_img_x;
-                            last_y = new_img_y;
+                        while(!sample.empty() && curElapsedTime - sample.attribute("elapsedTimeFromStart").as_int() < pRoutePane->Tail) {
+                            points.emplace_back(sample.attribute("imageX").as_float(), sample.attribute("imageY").as_float());
                             sample = sample.previous_sibling();
                         }
-                        delete pPenTail;
+                        if (points.size() > 1) {
+                            Gdiplus::Pen *pPenTail = new Gdiplus::Pen(pRoutePane->TailColor, pRoutePane->TailWidth);
+                            graphics.DrawLines(pPenTail, points.data(), points.size());
+                            delete pPenTail;
+                        }
                     }
 
                     graphics.Restore(state);
@@ -1353,11 +1356,25 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
                                     wsprintfW(wstr, L"%i", hr_attr.as_int());
                                 }
                             } else if (pTextPane->TextType == TextType::Pace) {
+                                int pace = 0;
                                 pugi::xml_attribute pace_attr = PathState.currentSample.attribute("pace");
                                 if (!pace_attr.empty()) {
-                                    int pace = pace_attr.as_int();
-                                    wsprintfW(wstr, L"%i'%02i", pace / 60, pace % 60);
+                                    pace = pace_attr.as_int();
                                 }
+                                if (pTextPane->Avg) {
+                                    int avgCount = 1;
+                                    int curElapsedTime = PathState.currentSample.attribute("elapsedTimeFromStart").as_int();
+                                    pugi::xml_node sample = PathState.currentSample.previous_sibling();
+                                    while(!sample.empty() && curElapsedTime - sample.attribute("elapsedTimeFromStart").as_int() < pTextPane->Avg) {
+                                        if (!sample.attribute("pace").empty()) {
+                                            pace += sample.attribute("pace").as_int();
+                                            ++avgCount;
+                                        }
+                                        sample = sample.previous_sibling();
+                                    }
+                                    pace /= avgCount;
+                                } 
+                                wsprintfW(wstr, L"%i'%02i", pace / 60, pace % 60);
                             }
                             out_string = wstr;
                         }
@@ -1393,6 +1410,7 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
                             rc,
                             pFormat,
                             pTextBrush);
+                        delete pFormat;
                         delete pTextFont;
                         delete pTextBrush;
                     }

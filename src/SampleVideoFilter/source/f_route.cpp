@@ -13,10 +13,10 @@
 
 #include <vd2/VDXFrame/VideoFilter.h>
 #include <vd2/VDXFrame/VideoFilterDialog.h>
-#include "..\include\resource.h"
+#include "resource.h"
 #include "gdiplusheaders.h"
 
-#include "..\include\pugixml.hpp"
+#include "pugixml.hpp"
 
 #define _USE_MATH_DEFINES
 #include "math.h"

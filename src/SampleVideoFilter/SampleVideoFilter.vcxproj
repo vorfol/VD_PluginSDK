@@ -218,6 +218,12 @@
   <ItemGroup>
     <ResourceCompile Include="SampleVideoFilter.rc" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\VDXFrame\VDXFrame.vcxproj">
+      <Project>{8102a7fc-a8cf-4d5a-a5d7-d858b4626d0d}</Project>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

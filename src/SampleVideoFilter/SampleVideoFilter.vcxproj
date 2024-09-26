@@ -108,14 +108,14 @@
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
     </ClCompile>
     <Link>
-      <OutputFile>$(OutDir)$(ProjectName).vdf</OutputFile>
+      <OutputFile>$(OutDir)$(ProjectName).dll</OutputFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <TargetMachine>MachineX86</TargetMachine>
     </Link>
     <CustomBuildStep>
-      <Command>copy $(TargetDir)$(TargetName).vdf C:\rgmapvideo\VirtualDub\plugins32</Command>
-      <Outputs>C:\rgmapvideo\VirtualDub\plugins32\$(TargetName).vdf;%(Outputs)</Outputs>
+      <Command>copy $(TargetDir)$(TargetName).dll $(TargetDir)$(TargetName).vdf</Command>
+      <Outputs>$(TargetDir)$(TargetName).vdf;%(Outputs)</Outputs>
     </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -137,11 +137,15 @@
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
     </ClCompile>
     <Link>
-      <OutputFile>$(OutDir)$(ProjectName).vdf</OutputFile>
+      <OutputFile>$(OutDir)$(ProjectName).dll</OutputFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <TargetMachine>MachineX64</TargetMachine>
     </Link>
+    <CustomBuildStep>
+      <Command>copy $(TargetDir)$(TargetName).dll $(TargetDir)$(TargetName).vdf</Command>
+      <Outputs>$(TargetDir)$(TargetName).vdf;%(Outputs)</Outputs>
+    </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -157,7 +161,7 @@
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
     </ClCompile>
     <Link>
-      <OutputFile>$(OutDir)$(ProjectName).vdf</OutputFile>
+      <OutputFile>$(OutDir)$(ProjectName).dll</OutputFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <OptimizeReferences>true</OptimizeReferences>
@@ -165,8 +169,8 @@
       <TargetMachine>MachineX86</TargetMachine>
     </Link>
     <CustomBuildStep>
-      <Command>copy $(TargetDir)$(TargetName).vdf C:\rgmapvideo\VirtualDub\plugins32</Command>
-      <Outputs>C:\rgmapvideo\VirtualDub\plugins32\$(TargetName).vdf;%(Outputs)</Outputs>
+      <Command>copy $(TargetDir)$(TargetName).dll $(TargetDir)$(TargetName).vdf</Command>
+      <Outputs>$(TargetDir)$(TargetName).vdf;%(Outputs)</Outputs>
     </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -186,13 +190,17 @@
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
     </ClCompile>
     <Link>
-      <OutputFile>$(OutDir)$(ProjectName).vdf</OutputFile>
+      <OutputFile>$(OutDir)$(ProjectName).dll</OutputFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <OptimizeReferences>true</OptimizeReferences>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <TargetMachine>MachineX64</TargetMachine>
     </Link>
+    <CustomBuildStep>
+      <Command>copy $(TargetDir)$(TargetName).dll $(TargetDir)$(TargetName).vdf</Command>
+      <Outputs>$(TargetDir)$(TargetName).vdf;%(Outputs)</Outputs>
+    </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="b64.cpp" />
@@ -209,12 +217,6 @@
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="SampleVideoFilter.rc" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\VDXFrame\VDXFrame.vcxproj">
-      <Project>{8102a7fc-a8cf-4d5a-a5d7-d858b4626d0d}</Project>
-      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
-    </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

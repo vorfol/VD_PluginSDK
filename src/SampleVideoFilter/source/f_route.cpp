@@ -26,6 +26,13 @@ using namespace Gdiplus;
 
 extern int g_VFVAPIVersion;
 
+template<typename... Args> void Log(const char * f, Args... args) {
+    FILE* pFile;
+    fopen_s(&pFile, "log.txt", "a");
+    fprintf(pFile, f, args...);
+    fclose(pFile);
+}
+
 class GDIToken
 {
 protected:
@@ -67,15 +74,15 @@ enum TextType {
 
 struct BasePane {
 public:
-    PaneType    Type;
-    std::string Name;
-    int         X;
-    int         Y;
-    int         W;
-    int         H;
-    int         Opaque;     // 0-100
-    time_t      Start;      // from video
-    time_t      End;        // from video, must be > Start, else infinite
+    PaneType        Type;
+    std::string     Name;
+    Gdiplus::REAL   X;
+    Gdiplus::REAL   Y;
+    Gdiplus::REAL   W;
+    Gdiplus::REAL   H;
+    int             Opaque;     // 0-100
+    time_t          Start;      // from video
+    time_t          End;        // from video, must be > Start, else infinite
 };
 
 
@@ -83,7 +90,7 @@ struct TextPane : public BasePane {
 public:
     Gdiplus::Color  FillColor;
     Gdiplus::Color  FontColor;
-    int             FontSize;
+    Gdiplus::REAL   FontSize;
     std::string     FontName;
     TextAlignment   Align;
     TextType        TextType;
@@ -101,7 +108,7 @@ public:
     std::string     PathName;       // name
     int             Margins;
     time_t          Tail;
-    int             TailWidth;
+    Gdiplus::REAL   TailWidth;
     Gdiplus::Color  TailColor;
     std::string     Pointer;        // name
     int             PointerOpaque;  // 0-100
@@ -159,7 +166,7 @@ time_t fromString(const std::string& s) {
     memset(&T, 0, sizeof(T));
     // GMT:
     //      "YYYY-MM-DDThh:mm:ssZ"
-    if (6 == sscanf(s.c_str(), "%d-%d-%dT%d:%d:%dZ", 
+    if (6 == sscanf_s(s.c_str(), "%d-%d-%dT%d:%d:%dZ", 
             &T.tm_year,
             &T.tm_mon,
             &T.tm_mday,
@@ -177,7 +184,7 @@ time_t fromString(const std::string& s) {
     // Duration:
     //      "mm:ss" 
     //      "hh:mm:ss"
-        switch (sscanf(s.c_str(), "%d:%d:%d", &T.tm_hour, &T.tm_min, &T.tm_sec)) {
+        switch (sscanf_s(s.c_str(), "%d:%d:%d", &T.tm_hour, &T.tm_min, &T.tm_sec)) {
             default:
                 ret = 0;
                 break;
@@ -222,28 +229,28 @@ BasePane* FillBasePane(BasePane *pPane, pugi::xml_node &node) {
         pPane->X = 0;
         if (!node.attribute("x").empty()) {
             if (std::string("right") == node.attribute("x").as_string()) {
-                pPane->X = INT_MAX;
+                pPane->X = FLT_MAX;
             } else {
-                pPane->X = node.attribute("x").as_int();
+                pPane->X = node.attribute("x").as_float();
             }
         }
         pPane->Y = 0;
         if (!node.attribute("y").empty()) {
             if (std::string("bottom") == node.attribute("y").as_string()) {
-                pPane->Y = INT_MAX;
+                pPane->Y = FLT_MAX;
             } else {
-                pPane->Y = node.attribute("y").as_int();
+                pPane->Y = node.attribute("y").as_float();
             }
         }
         if (node.attribute("w").empty()) {
             pPane->W = 0;    
         } else {
-            pPane->W = node.attribute("w").as_int();
+            pPane->W = node.attribute("w").as_float();
         }
         if (node.attribute("h").empty()) {
             pPane->H = 0;
         } else {
-            pPane->H = node.attribute("h").as_int();
+            pPane->H = node.attribute("h").as_float();
         }
         pPane->Opaque = 100;
         if (!node.attribute("opaq").empty()) {
@@ -289,7 +296,7 @@ BasePane* FillTextPane(TextPane *pPane, pugi::xml_node &node) {
     pPane->FontSize = 16;
     pugi::xml_node font_size_node = node.child("FontSize");
     if (!font_size_node.empty()) {
-        pPane->FontSize = fromString<int>(font_size_node.child_value());
+        pPane->FontSize = fromString<Gdiplus::REAL>(font_size_node.child_value());
     }
 
     pPane->FontName = "Arial";
@@ -380,7 +387,7 @@ BasePane* FillRoutePane(RoutePane *pPane, pugi::xml_node &node) {
     pPane->TailWidth = 8;
     pugi::xml_node width_node = node.child("TailWidth");
     if (!width_node.empty()) {
-        pPane->TailWidth = fromString<int>(width_node.child_value());
+        pPane->TailWidth = fromString<Gdiplus::REAL>(width_node.child_value());
     }
 
     pPane->TailColor = Gdiplus::Color(0x60,0xff,0,0);
@@ -629,7 +636,7 @@ public:
     Gdiplus::Matrix                *pLegMatrix; // without scale
     std::vector<Gdiplus::PointF>    legPoints;
     std::vector<int>                legTimes;
-    double                          vectorSize;
+    Gdiplus::REAL                   vectorSize;
     Gdiplus::REAL                   left;
     Gdiplus::REAL                   top;
     Gdiplus::REAL                   right;
@@ -731,7 +738,7 @@ void RouteFilter::DeleteVars()
     }
     m_PathStates.clear();
 
-    for (int i = 0; i < m_RoutePaneStates.size(); ++i) {
+    for (size_t i = 0; i < m_RoutePaneStates.size(); ++i) {
         delete m_RoutePaneStates[i].pLegMatrix;
     }
     m_RoutePaneStates.clear();
@@ -782,23 +789,17 @@ void RouteFilter::CreateVars() {
             if (P.pPath->load_file(it->second.c_str())) {
                 pugi::xml_node route = P.pPath->child("Route");
                 if (route.empty()) {
-                    FILE* pFile = fopen("log.txt", "a");
-                    fprintf(pFile, "No Route in %s\n", it->second.c_str());
-                    fclose(pFile);
+                    Log("No Route in %s\n", it->second.c_str());
                 } else {
                     pugi::xml_node segment = route.child("Segment");
                     if (segment.empty()) {
-                        FILE* pFile = fopen("log.txt", "a");
-                        fprintf(pFile, "No Segment in %s\n", it->second.c_str());
-                        fclose(pFile);
+                        Log("No Segment in %s\n", it->second.c_str());
                     } else {
                         pugi::xml_node e;
                         P.lastSample = e;
                         P.currentSample = segment.first_child();
                         if (P.currentSample.empty()) {
-                            FILE* pFile = fopen("log.txt", "a");
-                            fprintf(pFile, "No samples in %s\n", it->second.c_str());
-                            fclose(pFile);
+                            Log("No samples in %s\n", it->second.c_str());
                         } else {
                             bool good_file = true;
                             const char *requiredAttributes[] = {
@@ -808,11 +809,9 @@ void RouteFilter::CreateVars() {
                                 "imageY",
                                 "lapNumber"
                             };
-                            for(int i = 0; i < sizeof(requiredAttributes)/sizeof(requiredAttributes[0]); ++i) {
+                            for(size_t i = 0; i < sizeof(requiredAttributes)/sizeof(requiredAttributes[0]); ++i) {
                                 if (P.currentSample.attribute(requiredAttributes[i]).empty()) {
-                                    FILE* pFile = fopen("log.txt", "a");
-                                    fprintf(pFile, "No \"%s\" attribute in %s\n", requiredAttributes[i], it->second.c_str());
-                                    fclose(pFile);
+                                    Log("No \"%s\" attribute in %s\n", requiredAttributes[i], it->second.c_str());
                                     good_file = false;
                                 }                                
                             }
@@ -826,7 +825,7 @@ void RouteFilter::CreateVars() {
             }
         }
         //init pane states
-        for (int i = 0; i < m_Config.m_Panes.size(); ++i) {
+        for (size_t i = 0; i < m_Config.m_Panes.size(); ++i) {
             RoutePaneState P;
             P.pLegMatrix = nullptr;
             P.visible = false;
@@ -857,16 +856,16 @@ void RouteFilter::Run() {
 
 		switch(pxdst.format) {
 			case nsVDXPixmap::kPixFormat_XRGB8888:
-                Gdiplus::Bitmap *pbmp = PrepareRGB32(pxdst.data, pxdst.pitch, pxdst.w, pxdst.h);
+                Gdiplus::Bitmap *pbmp = PrepareRGB32(pxdst.data, (uint32)pxdst.pitch, pxdst.w, pxdst.h);
                 DrawRoute(pbmp, fa->pfsi->lSourceFrameMS);
-                ApplyRGB32(pbmp, pxdst.data, pxdst.pitch, pxdst.w, pxdst.h);
+                ApplyRGB32(pbmp, pxdst.data, (uint32)pxdst.pitch, pxdst.w, pxdst.h);
                 delete pbmp;
 				break;
 		}
 	} else {
-        Gdiplus::Bitmap *pbmp = PrepareRGB32(fa->dst.data, fa->dst.pitch, fa->dst.w, fa->dst.h);
+        Gdiplus::Bitmap *pbmp = PrepareRGB32(fa->dst.data, (uint32)fa->dst.pitch, fa->dst.w, fa->dst.h);
         DrawRoute(pbmp, fa->pfsi->lSourceFrameMS);
-        ApplyRGB32(pbmp, fa->dst.data, fa->dst.pitch, fa->dst.w, fa->dst.h);
+        ApplyRGB32(pbmp, fa->dst.data, (uint32)fa->dst.pitch, fa->dst.w, fa->dst.h);
         delete pbmp;
 	}
 }
@@ -896,9 +895,7 @@ bool RouteFilter::Configure(VDXHWND hwnd) {
 
 void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
     if (pbmp == nullptr) {
-        FILE* pFile = fopen("log.txt", "a");
-        fprintf(pFile, "No image to draw at %i\n", ms / 1000);
-        fclose(pFile);
+        Log("No image to draw at %i\n", ms / 1000);
         return;
     }
     // Test if bitmap size changed
@@ -972,13 +969,13 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
             }
             //add all leg points to array
             while(!sample.empty() && sample.attribute("lapNumber").as_int() == PathState.currentLap) {
-                PathState.legPoints.push_back(Gdiplus::PointF(sample.attribute("imageX").as_int(), sample.attribute("imageY").as_int()));
+                PathState.legPoints.push_back(Gdiplus::PointF(sample.attribute("imageX").as_float(), sample.attribute("imageY").as_float()));
                 PathState.legTimes.push_back(sample.attribute("elapsedTimeFromStart").as_int());
                 sample = sample.next_sibling();
             }
 
             //2. build matrix
-            int samples = PathState.legPoints.size();
+            size_t samples = PathState.legPoints.size();
             if (samples > 1)  {
                 Gdiplus::PointF start(PathState.legPoints[0].X, PathState.legPoints[0].Y);
                 Gdiplus::PointF end(PathState.legPoints[samples-1].X, PathState.legPoints[samples-1].Y);
@@ -992,8 +989,8 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
                         PathState.vectorSize = 1;
                     }
 
-					double angle = atan2((double)(vector.Y), (double)(vector.X));
-                    double leg_direction = 90.0+180.0*(angle)/M_PI;
+					Gdiplus::REAL angle = atan2(vector.Y, vector.X);
+                    Gdiplus::REAL leg_direction = 90.0f+180.0f*(angle)/(Gdiplus::REAL)M_PI;
 
                     delete PathState.pLegMatrix;
                     PathState.pLegMatrix = new Gdiplus::Matrix();
@@ -1001,14 +998,14 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
 
                     //rotate test points
                     std::vector<Gdiplus::PointF> testArr = PathState.legPoints;
-                    PathState.pLegMatrix->TransformPoints(testArr.data(), samples);
+                    PathState.pLegMatrix->TransformPoints(testArr.data(), (int)samples);
 
                     //find bounds
                     PathState.left = testArr[0].X - PathState.legCenter.X;
                     PathState.top = testArr[0].Y - PathState.legCenter.Y;
                     PathState.right = PathState.left;
                     PathState.bottom = PathState.top;
-                    for(int i = 0; i < samples; i++) {
+                    for(size_t i = 0; i < samples; i++) {
                         PathState.left = min(PathState.left, testArr[i].X - PathState.legCenter.X);
                         PathState.top = min(PathState.top, testArr[i].Y - PathState.legCenter.Y);
                         PathState.right = max(PathState.right, testArr[i].X - PathState.legCenter.X);
@@ -1023,7 +1020,7 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
             } else {
                 //find leg position
                 PathState.legPosition = 0;
-                for(int i = 0; i < PathState.legPoints.size() && PathState.legTimes[i] < elapsed_time; ++i, PathState.legPosition++){
+                for(size_t i = 0; i < PathState.legPoints.size() && PathState.legTimes[i] < elapsed_time; ++i, PathState.legPosition++){
                     //TODO: binary search;
                 }
             }
@@ -1032,7 +1029,7 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
 
     bool do_refresh = false;
     // Walk over all panes to set/reset visibility
-    for (int i = 0; i < m_Config.m_Panes.size(); ++i) {
+    for (size_t i = 0; i < m_Config.m_Panes.size(); ++i) {
         BasePane *pPane = m_Config.m_Panes[i];
         RoutePaneState &RoutePaneState = m_RoutePaneStates[i];
         if (pPane->Opaque > 0 &&
@@ -1093,31 +1090,31 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
         Color clear_color(0,0,0,0);
         graphics.Clear(clear_color);
 
-        for (int i = 0; i < m_Config.m_Panes.size(); ++i) {
+        for (size_t i = 0; i < m_Config.m_Panes.size(); ++i) {
             BasePane *pPane = m_Config.m_Panes[i];
             RoutePaneState &RoutePaneState = m_RoutePaneStates[i];
             if (RoutePaneState.visible) {
-                int X = pPane->X;
-                int Y = pPane->Y;
-                int W = pPane->W;
-                int H = pPane->H;
+                Gdiplus::REAL X = pPane->X;
+                Gdiplus::REAL Y = pPane->Y;
+                Gdiplus::REAL W = pPane->W;
+                Gdiplus::REAL H = pPane->H;
                 // Scale if pane desired size does not equal video size
                 if (m_Config.m_PaneWidth && m_Config.m_PaneWidth != m_pLastBmp->GetWidth()) {
                     W = W * m_pLastBmp->GetWidth() / m_Config.m_PaneWidth;
-                    if (X != INT_MAX) {
+                    if (X != FLT_MAX) {
                         X = X * m_pLastBmp->GetWidth() / m_Config.m_PaneWidth;
                     }
                 }
                 if (m_Config.m_PaneHeight && m_Config.m_PaneHeight != m_pLastBmp->GetHeight()) {
                     H = H * m_pLastBmp->GetHeight() / m_Config.m_PaneHeight;
-                    if (Y != INT_MAX) {
+                    if (Y != FLT_MAX) {
                         Y = Y * m_pLastBmp->GetHeight() / m_Config.m_PaneHeight;
                     }
                 }
-                if (X == INT_MAX) {
+                if (X == FLT_MAX) {
                     X = m_pLastBmp->GetWidth() - W;
                 }
-                if (Y == INT_MAX) {
+                if (Y == FLT_MAX) {
                     Y = m_pLastBmp->GetHeight() - H;
                 }
                 if (pPane->Type == PaneType::Image) {
@@ -1133,29 +1130,27 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
                         };
                         ImgAttr.SetColorMatrix(&ClrMatrix, Gdiplus::ColorMatrixFlagsDefault, Gdiplus::ColorAdjustTypeBitmap);
                         if (W == 0) {
-                            W = pImage->GetWidth();
+                            W = (Gdiplus::REAL)pImage->GetWidth();
                             if (m_Config.m_PaneWidth && m_Config.m_PaneWidth != m_pLastBmp->GetWidth()) {
                                 W = W * m_pLastBmp->GetWidth() / m_Config.m_PaneWidth;
                             }
-                            if (pPane->X == INT_MAX) {
+                            if (pPane->X == FLT_MAX) {
                                 X = m_pLastBmp->GetWidth() - W;
                             }
                         }
                         if (H == 0) {
-                            H = pImage->GetHeight();
+                            H = (Gdiplus::REAL)pImage->GetHeight();
                             if (m_Config.m_PaneHeight && m_Config.m_PaneHeight != m_pLastBmp->GetHeight()) {
                                 H = H * m_pLastBmp->GetHeight() / m_Config.m_PaneHeight;
                             }                        
-                            if (pPane->Y == INT_MAX) {
+                            if (pPane->Y == FLT_MAX) {
                                 Y = m_pLastBmp->GetHeight() - H;
                             }
                         }
-                        Gdiplus::Rect    destination(X, Y, W, H);
-                        status = graphics.DrawImage(pImage, destination, 0, 0, pImage->GetWidth(), pImage->GetHeight(), Gdiplus::UnitPixel, &ImgAttr);
+                        Gdiplus::RectF destination(X, Y, W, H);
+                        status = graphics.DrawImage(pImage, destination, 0, 0, (Gdiplus::REAL)pImage->GetWidth(), (Gdiplus::REAL)pImage->GetHeight(), Gdiplus::UnitPixel, &ImgAttr);
                         if (status != Status::Ok) {
-                            FILE* pFile = fopen("log.txt", "a");
-                            fprintf(pFile, "Status draw Image \"%s\" image => %i at %d\n", pPane->Name.c_str(), status, ms / 1000);
-                            fclose(pFile);
+                            Log("Status draw Image \"%s\" image => %i at %d\n", pPane->Name.c_str(), status, ms / 1000);
                         }
                     }
                 } else if (pPane->Type == PaneType::Pos) {
@@ -1166,23 +1161,23 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
                         continue;   // Go to the next pane
                     }
 
-                    int32 image_x = PathState.currentSample.attribute("imageX").as_int();
-                    int32 image_y = PathState.currentSample.attribute("imageY").as_int();
+                    Gdiplus::REAL image_x = PathState.currentSample.attribute("imageX").as_float();
+                    Gdiplus::REAL image_y = PathState.currentSample.attribute("imageY").as_float();
 
-                    double head_direction = 0;
+                    Gdiplus::REAL head_direction = 0;
                     if (!PathState.currentSample.attribute("direction").empty()) {
-                        head_direction = PathState.currentSample.attribute("direction").as_double();
+                        head_direction = PathState.currentSample.attribute("direction").as_float();
                     }
 
                     // Next transformations are both for the image and the tail
                     Gdiplus::GraphicsState state = graphics.Save();
 
                     //TODO: clip by region
-                    Gdiplus::Rect clip_rect(X, Y, W, H);
+                    Gdiplus::RectF clip_rect(X, Y, W, H);
                     graphics.SetClip(clip_rect);
 
                     Gdiplus::Matrix rotate_at_map;
-                    Gdiplus::PointF center(X + W/2, Y + H/2);
+                    Gdiplus::PointF center(X + W/2.0f, Y + H/2.0f);
                     Gdiplus::PointF image_pos(image_x, image_y);
                     rotate_at_map.RotateAt(-head_direction, image_pos);
                     rotate_at_map.Scale(pRoutePane->MaxScale, pRoutePane->MaxScale, Gdiplus::MatrixOrderAppend);
@@ -1204,9 +1199,7 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
                         Gdiplus::Rect    destination(0, 0, pImage->GetWidth(), pImage->GetHeight());
                         status = graphics.DrawImage(pImage, destination, 0, 0, pImage->GetWidth(), pImage->GetHeight(), UnitPixel, &ImgAttr);
                         if (status != Status::Ok) {
-                            FILE* pFile = fopen("log.txt", "a");
-                            fprintf(pFile, "Status draw Pos \"%s\" image => %i at %d\n", pRoutePane->Name.c_str(), status, ms / 1000);
-                            fclose(pFile);
+                            Log("Status draw Pos \"%s\" image => %i at %d\n", pRoutePane->Name.c_str(), status, ms / 1000);
                         }
                     }
 
@@ -1222,7 +1215,7 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
                         }
                         if (points.size() > 1) {
                             Gdiplus::Pen *pPenTail = new Gdiplus::Pen(pRoutePane->TailColor, pRoutePane->TailWidth);
-                            graphics.DrawLines(pPenTail, points.data(), points.size());
+                            graphics.DrawLines(pPenTail, points.data(), (int)points.size());
                             delete pPenTail;
                         }
                     }
@@ -1241,14 +1234,12 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
                                 0.0f, 0.0f, 0.0f, 0.0f, 1.0f
                         };
                         ImgAttr.SetColorMatrix(&ClrMatrix, Gdiplus::ColorMatrixFlagsDefault, Gdiplus::ColorAdjustTypeBitmap);
-                        Gdiplus::Rect    destination(X + W/2 - pPointer->GetWidth()/2, 
+                        Gdiplus::RectF   destination(X + W/2 - pPointer->GetWidth()/2, 
                                                      Y + H/2 - pPointer->GetHeight()/2,
-                                                    pPointer->GetWidth(), pPointer->GetHeight());
-                        status = graphics.DrawImage(pPointer, destination, 0, 0, pPointer->GetWidth(), pPointer->GetHeight(), UnitPixel, &ImgAttr);
+                                                    (Gdiplus::REAL)pPointer->GetWidth(), (Gdiplus::REAL)pPointer->GetHeight());
+                        status = graphics.DrawImage(pPointer, destination, 0, 0, (Gdiplus::REAL)pPointer->GetWidth(), (Gdiplus::REAL)pPointer->GetHeight(), UnitPixel, &ImgAttr);
                         if (status != Status::Ok) {
-                            FILE* pFile = fopen("log.txt", "a");
-                            fprintf(pFile, "Status draw Pos \"%s\" pointer => %i at %d\n", pRoutePane->Name.c_str(), status, ms / 1000);
-                            fclose(pFile);
+                            Log("Status draw Pos \"%s\" pointer => %i at %d\n", pRoutePane->Name.c_str(), status, ms / 1000);
                         }
                     }
                 } else if (pPane->Type == PaneType::Leg) {
@@ -1260,30 +1251,30 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
                     }
                     if (RoutePaneState.currentLap != PathState.currentLap) {
                         RoutePaneState.currentLap = PathState.currentLap;
-                        double scale = (H - pRoutePane->Margins * 2)/PathState.vectorSize;
+                        Gdiplus::REAL scale = (H - pRoutePane->Margins * 2.0f)/PathState.vectorSize;
                         if (fabs(PathState.left) > 0.01) {
-                            scale = min(scale, (W/2.0 - pRoutePane->Margins)/fabs(PathState.left));
+                            scale = min(scale, (W/2.0f - pRoutePane->Margins)/fabs(PathState.left));
                         }
-                        if (fabs(PathState.right) > 0.01) {
-                            scale = min(scale, (W/2.0 - pRoutePane->Margins)/fabs(PathState.right));
+                        if (fabs(PathState.right) > 0.01f) {
+                            scale = min(scale, (W/2.0f - pRoutePane->Margins)/fabs(PathState.right));
                         }
-                        if (fabs(PathState.top) > 0.01) {
-                            scale = min(scale, (H/2.0 - pRoutePane->Margins)/fabs(PathState.top));
+                        if (fabs(PathState.top) > 0.01f) {
+                            scale = min(scale, (H/2.0f - pRoutePane->Margins)/fabs(PathState.top));
                         }
-                        if (fabs(PathState.bottom) > 0.01) {
-                            scale = min(scale, (H/2.0 - pRoutePane->Margins)/fabs(PathState.bottom));
+                        if (fabs(PathState.bottom) > 0.01f) {
+                            scale = min(scale, (H/2.0f - pRoutePane->Margins)/fabs(PathState.bottom));
                         }
                         if (scale > pRoutePane->MaxScale) {
                             scale = pRoutePane->MaxScale;
-                        } else if (scale < 0.01) {
-                            scale = 0.01;
+                        } else if (scale < 0.01f) {
+                            scale = 0.01f;
                         }
                         RoutePaneState.legPoints = PathState.legPoints;
-                        Gdiplus::PointF view_center(X + W/2, Y + H/2);
+                        Gdiplus::PointF view_center(X + W/2.0f, Y + H/2.0f);
                         RoutePaneState.pLegMatrix = PathState.pLegMatrix->Clone();
                         RoutePaneState.pLegMatrix->Scale(scale, scale, Gdiplus::MatrixOrderAppend);
                         RoutePaneState.pLegMatrix->Translate(view_center.X - PathState.legCenter.X * scale, view_center.Y - PathState.legCenter.Y * scale, Gdiplus::MatrixOrderAppend);
-                        RoutePaneState.pLegMatrix->TransformPoints(RoutePaneState.legPoints.data(), RoutePaneState.legPoints.size());
+                        RoutePaneState.pLegMatrix->TransformPoints(RoutePaneState.legPoints.data(), (int)RoutePaneState.legPoints.size());
                     }
                     //draw leg
                     Gdiplus::Bitmap *pImage = m_Images[pRoutePane->ImageName];
@@ -1291,7 +1282,7 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
                         GraphicsState state = graphics.Save();
                         
                         //TODO: set clip by region
-                        Rect clip_rect(X, Y, W, H);
+                        Gdiplus::RectF clip_rect(X, Y, W, H);
                         graphics.SetClip(clip_rect);
 
                         REAL t1[6];
@@ -1311,9 +1302,7 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
                         Rect    destination(0, 0, pImage->GetWidth(), pImage->GetHeight());
                         status = graphics.DrawImage(pImage, destination, 0, 0, pImage->GetWidth(), pImage->GetHeight(), UnitPixel, &ImgAttr);
                         if (status != Gdiplus::Status::Ok) {
-                            FILE* pFile = fopen("log.txt", "a");
-                            fprintf(pFile, "Status draw Leg \"%s\" image => %i at %d\n", pRoutePane->Name.c_str(), status, ms / 1000);
-                            fclose(pFile);
+                            Log("Status draw Leg \"%s\" image => %i at %d\n", pRoutePane->Name.c_str(), status, ms / 1000);
                         }
 
                         graphics.Restore(state);
@@ -1325,10 +1314,8 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
                                 Gdiplus::Pen *pPenTail = new Gdiplus::Pen(pRoutePane->TailColor, pRoutePane->TailWidth);
                                 status = graphics.DrawLines(pPenTail, RoutePaneState.legPoints.data(), PathState.legPosition);
                                 if (status != Gdiplus::Status::Ok) {
-                                    FILE* pFile = fopen("log.txt", "a");
-                                    fprintf(pFile, "Status draw Leg \"%s\" points => %i, size %i, pos %i, at %d\n", 
+                                    Log("Status draw Leg \"%s\" points => %i, size %i, pos %i, at %d\n", 
                                         pRoutePane->Name.c_str(), status, RoutePaneState.legPoints.size(), PathState.legPosition, ms / 1000);
-                                    fclose(pFile);
                                 }
                                 delete pPenTail;
                             }
@@ -1384,7 +1371,7 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
                         graphics.FillRectangle(pFillBrush, X, Y, W, H);
                         delete pFillBrush;
                         Gdiplus::Brush *pTextBrush = new Gdiplus::SolidBrush(pTextPane->FontColor);
-                        int fontSize = pTextPane->FontSize;
+                        Gdiplus::REAL fontSize = pTextPane->FontSize;
                         if (m_Config.m_PaneHeight && m_Config.m_PaneHeight != m_pLastBmp->GetHeight()) {
                             fontSize = fontSize * m_pLastBmp->GetHeight() / m_Config.m_PaneHeight;
                         }
@@ -1405,7 +1392,7 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
                                 break;
                         }
                         graphics.DrawString(
-                            out_string.c_str(), out_string.length(),
+                            out_string.c_str(), (int)out_string.length(),
                             pTextFont,
                             rc,
                             pFormat,
@@ -1424,9 +1411,7 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
         Gdiplus::Graphics gr_to(pbmp);
         status = gr_to.DrawImage(m_pLastBmp, 0, 0);
         if (status != Status::Ok) {
-            FILE* pFile = fopen("log.txt", "a");
-            fprintf(pFile, "Status draw layer => %i at %d\n", status, ms / 1000);
-            fclose(pFile);
+            Log("Status draw layer => %i at %d\n", status, ms / 1000);
         }
     }
 

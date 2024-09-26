@@ -203,20 +203,20 @@
     </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="b64.cpp" />
+    <ClCompile Include="source\b64.cpp" />
     <ClCompile Include="source\f_route.cpp" />
     <ClCompile Include="source\main.cpp" />
     <ClCompile Include="source\pugixml.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="resource.h" />
+    <ClInclude Include="include\resource.h" />
     <ClInclude Include="..\..\include\vd2\plugin\vdplugin.h" />
     <ClInclude Include="..\..\include\vd2\plugin\vdvideofilt.h" />
-    <ClInclude Include="source\pugiconfig.hpp" />
-    <ClInclude Include="source\pugixml.hpp" />
+    <ClInclude Include="include\pugiconfig.hpp" />
+    <ClInclude Include="include\pugixml.hpp" />
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="SampleVideoFilter.rc" />
+    <ResourceCompile Include="source\SampleVideoFilter.rc" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\VDXFrame\VDXFrame.vcxproj">

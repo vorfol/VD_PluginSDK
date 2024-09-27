@@ -1,0 +1,38 @@
+{
+        // See https://go.microsoft.com/fwlink/?LinkId=733558
+        // for the documentation about the tasks.json format
+        // COPY THIS TO .vscode
+        "version": "2.0.0",
+        "tasks": [
+                {
+                        "label": "Release:x64",
+                        "type": "shell",
+                        "command": "msbuild",
+                        "args": [
+                                "src\\Samples.sln",
+                                "-property:Configuration=Release",
+                                "-property:Platform=x64"
+                        ],
+                        "group": "build",
+                        "presentation": {
+                                "reveal": "silent"
+                        },
+                        "problemMatcher": "$msCompile"
+                }
+                ,{
+                        "label": "Debug:x64",
+                        "type": "shell",
+                        "command": "msbuild",
+                        "args": [
+                                "src\\Samples.sln",
+                                "-property:Configuration=Debug",
+                                "-property:Platform=x64"
+                        ],
+                        "group": "build",
+                        "presentation": {
+                                "reveal": "silent"
+                        },
+                        "problemMatcher": "$msCompile"
+                }
+        ]
+}

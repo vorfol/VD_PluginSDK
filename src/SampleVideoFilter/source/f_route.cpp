@@ -113,6 +113,7 @@ public:
     std::string     Pointer;        // name
     int             PointerOpaque;  // 0-100
     float           MaxScale;
+    int             AnimationFrames;
 };
 
 class RouteFilterConfig 
@@ -414,6 +415,12 @@ BasePane* FillRoutePane(RoutePane *pPane, pugi::xml_node &node) {
         pPane->MaxScale = fromString<float>(scale_node.child_value());
     }
 
+    pPane->AnimationFrames = 300;
+    pugi::xml_node animation_node = node.child("AnimationFrames");
+    if (!animation_node.empty()) {
+        pPane->AnimationFrames = fromString<int>(animation_node.child_value());
+    }
+
     return FillImagePane(pPane, node);
 }
 
@@ -627,6 +634,9 @@ public:
         left = top = right = bottom = 0;
         legCenter.X = legCenter.Y = 0;
     };
+    ~PathState() {
+        delete pLegMatrix;
+    }
     pugi::xml_document             *pPath;
     time_t                          startTime;
     pugi::xml_node                  lastSample;
@@ -650,11 +660,21 @@ public:
         visible = false;
         currentLap = -1;
         pLegMatrix = nullptr;
+        pLegMatrixPrev = nullptr;
+        curAnimationFrame = 0;
+        animationFrames = 300;
     };
+    ~RoutePaneState() {
+        delete pLegMatrix;
+        delete pLegMatrixPrev;
+    }
     bool                            visible;
     int                             currentLap;
     std::vector<Gdiplus::PointF>    legPoints;
-    Gdiplus::Matrix                *pLegMatrix; // scaled by pane view
+    Gdiplus::Matrix                *pLegMatrix;     // scaled by pane view
+    Gdiplus::Matrix                *pLegMatrixPrev; // scaled by pane view
+    int                             curAnimationFrame;
+    int                             animationFrames;
 };
 
 class RouteFilter : public VDXVideoFilter {
@@ -732,15 +752,8 @@ void RouteFilter::DeleteVars()
     }
     m_Images.clear();
 
-    for (auto it = m_PathStates.begin(); it != m_PathStates.end(); ++it) {
-        delete it->second.pLegMatrix;
-        delete it->second.pPath;
-    }
     m_PathStates.clear();
 
-    for (size_t i = 0; i < m_RoutePaneStates.size(); ++i) {
-        delete m_RoutePaneStates[i].pLegMatrix;
-    }
     m_RoutePaneStates.clear();
 
     ZeroVars();
@@ -813,7 +826,7 @@ void RouteFilter::CreateVars() {
                                 if (P.currentSample.attribute(requiredAttributes[i]).empty()) {
                                     Log("No \"%s\" attribute in %s\n", requiredAttributes[i], it->second.c_str());
                                     good_file = false;
-                                }                                
+                                }
                             }
                             if (good_file) {
                                 P.startTime = fromString<time_t>(P.currentSample.attribute("time").as_string());
@@ -826,11 +839,7 @@ void RouteFilter::CreateVars() {
         }
         //init pane states
         for (size_t i = 0; i < m_Config.m_Panes.size(); ++i) {
-            RoutePaneState P;
-            P.pLegMatrix = nullptr;
-            P.visible = false;
-            P.currentLap = 0;
-            m_RoutePaneStates.push_back(P);
+            m_RoutePaneStates.emplace_back();
         }
     }
     m_Initialized = TRUE;
@@ -1050,6 +1059,8 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
                             RoutePane* pRoutePane = (RoutePane*)pPane;
                             PathState &PathState = m_PathStates[pRoutePane->PathName];
                             do_refresh |= (PathState.lastSample != PathState.currentSample);
+                            // refrash each frame while animation in progress
+                            do_refresh |= (RoutePaneState.pLegMatrixPrev != nullptr && RoutePaneState.curAnimationFrame < RoutePaneState.animationFrames);
                         }
                         break;
                     case PaneType::Text:
@@ -1271,12 +1282,29 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
                         }
                         RoutePaneState.legPoints = PathState.legPoints;
                         Gdiplus::PointF view_center(X + W/2.0f, Y + H/2.0f);
+                        RoutePaneState.pLegMatrixPrev = RoutePaneState.pLegMatrix;
+                        RoutePaneState.curAnimationFrame = 0;
+                        RoutePaneState.animationFrames = pRoutePane->AnimationFrames;
                         RoutePaneState.pLegMatrix = PathState.pLegMatrix->Clone();
                         RoutePaneState.pLegMatrix->Scale(scale, scale, Gdiplus::MatrixOrderAppend);
                         RoutePaneState.pLegMatrix->Translate(view_center.X - PathState.legCenter.X * scale, view_center.Y - PathState.legCenter.Y * scale, Gdiplus::MatrixOrderAppend);
-                        RoutePaneState.pLegMatrix->TransformPoints(RoutePaneState.legPoints.data(), (int)RoutePaneState.legPoints.size());
                     }
-                    //draw leg
+
+                    // Calculate animation matrix
+                    Gdiplus::Matrix *pTransformMatrix = RoutePaneState.pLegMatrix->Clone();
+                    if (RoutePaneState.pLegMatrixPrev != nullptr && RoutePaneState.curAnimationFrame < RoutePaneState.animationFrames) {
+                        Gdiplus::REAL from[6];
+                        Gdiplus::REAL to[6];
+                        RoutePaneState.pLegMatrixPrev->GetElements(from);
+                        RoutePaneState.pLegMatrix->GetElements(to);
+                        for(size_t i = 0; i < 6; ++i) {
+                            to[i] = from[i] + (to[i] - from[i]) * RoutePaneState.curAnimationFrame / RoutePaneState.animationFrames;
+                        }
+                        ++RoutePaneState.curAnimationFrame;
+                        pTransformMatrix->SetElements(to[0], to[1], to[2], to[3], to[4], to[5]);
+                    }
+
+                    // Draw leg map
                     Gdiplus::Bitmap *pImage = m_Images[pRoutePane->ImageName];
                     if (pImage != nullptr) {
                         GraphicsState state = graphics.Save();
@@ -1284,10 +1312,6 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
                         //TODO: set clip by region
                         Gdiplus::RectF clip_rect(X, Y, W, H);
                         graphics.SetClip(clip_rect);
-
-                        REAL t1[6];
-                        RoutePaneState.pLegMatrix->GetElements(t1);
-                        graphics.SetTransform(RoutePaneState.pLegMatrix);
 
                         ColorMatrix ClrMatrix = { 
                                 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,
@@ -1299,6 +1323,8 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
                         ImageAttributes ImgAttr;
                         ImgAttr.SetColorMatrix(&ClrMatrix, Gdiplus::ColorMatrixFlagsDefault, Gdiplus::ColorAdjustTypeBitmap);
 
+                        graphics.SetTransform(pTransformMatrix);
+
                         Rect    destination(0, 0, pImage->GetWidth(), pImage->GetHeight());
                         status = graphics.DrawImage(pImage, destination, 0, 0, pImage->GetWidth(), pImage->GetHeight(), UnitPixel, &ImgAttr);
                         if (status != Gdiplus::Status::Ok) {
@@ -1307,10 +1333,13 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
 
                         graphics.Restore(state);
                     }
-                    // LegPoints are already transformed
+
+                    // Draw leg points
                     if (RoutePaneState.legPoints.size() > 1) {
                         if (PathState.legPosition > 1) {
                             if (pRoutePane->TailColor.GetAlpha() != 0) {
+                                GraphicsState state = graphics.Save();
+                                graphics.SetTransform(pTransformMatrix);
                                 Gdiplus::Pen *pPenTail = new Gdiplus::Pen(pRoutePane->TailColor, pRoutePane->TailWidth);
                                 status = graphics.DrawLines(pPenTail, RoutePaneState.legPoints.data(), PathState.legPosition);
                                 if (status != Gdiplus::Status::Ok) {
@@ -1318,9 +1347,11 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
                                         pRoutePane->Name.c_str(), status, RoutePaneState.legPoints.size(), PathState.legPosition, ms / 1000);
                                 }
                                 delete pPenTail;
+                                graphics.Restore(state);
                             }
                         }
                     }
+                    delete pTransformMatrix;
                 } else if (pPane->Type == PaneType::Text) {
                     //draw leg
                     TextPane* pTextPane = (TextPane*)pPane;

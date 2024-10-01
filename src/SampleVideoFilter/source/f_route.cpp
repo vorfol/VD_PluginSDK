@@ -661,8 +661,7 @@ public:
         currentLap = -1;
         pLegMatrix = nullptr;
         pLegMatrixPrev = nullptr;
-        curAnimationFrame = 0;
-        animationFrames = 300;
+        animationFrame = 0;
     };
     ~RoutePaneState() {
         delete pLegMatrix;
@@ -673,8 +672,7 @@ public:
     std::vector<Gdiplus::PointF>    legPoints;
     Gdiplus::Matrix                *pLegMatrix;     // scaled by pane view
     Gdiplus::Matrix                *pLegMatrixPrev; // scaled by pane view
-    int                             curAnimationFrame;
-    int                             animationFrames;
+    int                             animationFrame;
 };
 
 class RouteFilter : public VDXVideoFilter {
@@ -1060,7 +1058,7 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
                             PathState &PathState = m_PathStates[pRoutePane->PathName];
                             do_refresh |= (PathState.lastSample != PathState.currentSample);
                             // refrash each frame while animation in progress
-                            do_refresh |= (RoutePaneState.pLegMatrixPrev != nullptr && RoutePaneState.curAnimationFrame < RoutePaneState.animationFrames);
+                            do_refresh |= (RoutePaneState.pLegMatrixPrev != nullptr && RoutePaneState.animationFrame < pRoutePane->AnimationFrames);
                         }
                         break;
                     case PaneType::Text:
@@ -1261,7 +1259,6 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
                         continue;   // to the next pane
                     }
                     if (RoutePaneState.currentLap != PathState.currentLap) {
-                        RoutePaneState.currentLap = PathState.currentLap;
                         Gdiplus::REAL scale = (H - pRoutePane->Margins * 2.0f)/PathState.vectorSize;
                         if (fabs(PathState.left) > 0.01) {
                             scale = min(scale, (W/2.0f - pRoutePane->Margins)/fabs(PathState.left));
@@ -1282,25 +1279,31 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
                         }
                         RoutePaneState.legPoints = PathState.legPoints;
                         Gdiplus::PointF view_center(X + W/2.0f, Y + H/2.0f);
-                        RoutePaneState.pLegMatrixPrev = RoutePaneState.pLegMatrix;
-                        RoutePaneState.curAnimationFrame = 0;
-                        RoutePaneState.animationFrames = pRoutePane->AnimationFrames;
+                        if (RoutePaneState.pLegMatrixPrev) {
+                            delete RoutePaneState.pLegMatrixPrev;
+                            RoutePaneState.pLegMatrixPrev = nullptr;
+                        }
+                        RoutePaneState.animationFrame = 0;
+                        if (RoutePaneState.currentLap + 1 == PathState.currentLap) {
+                            RoutePaneState.pLegMatrixPrev = RoutePaneState.pLegMatrix;
+                        }
                         RoutePaneState.pLegMatrix = PathState.pLegMatrix->Clone();
                         RoutePaneState.pLegMatrix->Scale(scale, scale, Gdiplus::MatrixOrderAppend);
                         RoutePaneState.pLegMatrix->Translate(view_center.X - PathState.legCenter.X * scale, view_center.Y - PathState.legCenter.Y * scale, Gdiplus::MatrixOrderAppend);
+                        RoutePaneState.currentLap = PathState.currentLap;
                     }
 
                     // Calculate animation matrix
                     Gdiplus::Matrix *pTransformMatrix = RoutePaneState.pLegMatrix->Clone();
-                    if (RoutePaneState.pLegMatrixPrev != nullptr && RoutePaneState.curAnimationFrame < RoutePaneState.animationFrames) {
+                    if (RoutePaneState.pLegMatrixPrev != nullptr && RoutePaneState.animationFrame < pRoutePane->AnimationFrames) {
                         Gdiplus::REAL from[6];
                         Gdiplus::REAL to[6];
                         RoutePaneState.pLegMatrixPrev->GetElements(from);
                         RoutePaneState.pLegMatrix->GetElements(to);
                         for(size_t i = 0; i < 6; ++i) {
-                            to[i] = from[i] + (to[i] - from[i]) * RoutePaneState.curAnimationFrame / RoutePaneState.animationFrames;
+                            to[i] = from[i] + (to[i] - from[i]) * RoutePaneState.animationFrame / pRoutePane->AnimationFrames;
                         }
-                        ++RoutePaneState.curAnimationFrame;
+                        ++RoutePaneState.animationFrame;
                         pTransformMatrix->SetElements(to[0], to[1], to[2], to[3], to[4], to[5]);
                     }
 

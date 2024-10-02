@@ -114,6 +114,7 @@
       <TargetMachine>MachineX86</TargetMachine>
     </Link>
     <CustomBuildStep>
+      <Inputs>$(TargetDir)$(TargetName).dll</Inputs>
       <Command>copy $(TargetDir)$(TargetName).dll $(TargetDir)$(TargetName).vdf</Command>
       <Outputs>$(TargetDir)$(TargetName).vdf;%(Outputs)</Outputs>
     </CustomBuildStep>
@@ -143,6 +144,7 @@
       <TargetMachine>MachineX64</TargetMachine>
     </Link>
     <CustomBuildStep>
+      <Inputs>$(TargetDir)$(TargetName).dll</Inputs>
       <Command>copy $(TargetDir)$(TargetName).dll $(TargetDir)$(TargetName).vdf</Command>
       <Outputs>$(TargetDir)$(TargetName).vdf;%(Outputs)</Outputs>
     </CustomBuildStep>
@@ -169,6 +171,7 @@
       <TargetMachine>MachineX86</TargetMachine>
     </Link>
     <CustomBuildStep>
+      <Inputs>$(TargetDir)$(TargetName).dll</Inputs>
       <Command>copy $(TargetDir)$(TargetName).dll $(TargetDir)$(TargetName).vdf</Command>
       <Outputs>$(TargetDir)$(TargetName).vdf;%(Outputs)</Outputs>
     </CustomBuildStep>
@@ -198,6 +201,7 @@
       <TargetMachine>MachineX64</TargetMachine>
     </Link>
     <CustomBuildStep>
+      <Inputs>$(TargetDir)$(TargetName).dll</Inputs>
       <Command>copy $(TargetDir)$(TargetName).dll $(TargetDir)$(TargetName).vdf</Command>
       <Outputs>$(TargetDir)$(TargetName).vdf;%(Outputs)</Outputs>
     </CustomBuildStep>

@@ -108,9 +108,9 @@ public:
     std::string     PathName;       // name
     int             Margins;
     time_t          Tail;
-    Gdiplus::REAL   TailWidth;
+    Gdiplus::REAL   PathWidth;
+    Gdiplus::Color  PathColor;
     Gdiplus::Color  TailColor;
-    Gdiplus::Color  TailColorPath;
     std::string     Pointer;        // name
     int             PointerOpaque;  // 0-100
     float           MaxScale;
@@ -386,22 +386,22 @@ BasePane* FillRoutePane(RoutePane *pPane, pugi::xml_node &node) {
         pPane->Tail = fromString<time_t>(tail_node.child_value());
     }
 
-    pPane->TailWidth = 8;
-    pugi::xml_node width_node = node.child("TailWidth");
+    pPane->PathWidth = 8;
+    pugi::xml_node width_node = node.child("PathWidth");
     if (!width_node.empty()) {
-        pPane->TailWidth = fromString<Gdiplus::REAL>(width_node.child_value());
+        pPane->PathWidth = fromString<Gdiplus::REAL>(width_node.child_value());
+    }
+
+    pPane->PathColor = Gdiplus::Color(0x60,0xff,0,0);
+    pugi::xml_node color_node = node.child("PathColor");
+    if (!color_node.empty()) {
+        pPane->PathColor = fromString<Gdiplus::Color>(color_node.child_value());
     }
 
     pPane->TailColor = Gdiplus::Color(0x60,0xff,0,0);
-    pugi::xml_node color_node = node.child("TailColor");
-    if (!color_node.empty()) {
-        pPane->TailColor = fromString<Gdiplus::Color>(color_node.child_value());
-    }
-
-    pPane->TailColor = Gdiplus::Color(0x60,0xff,0,0);
-    pugi::xml_node color_node = node.child("TailColor");
-    if (!color_node.empty()) {
-        pPane->TailColor = fromString<Gdiplus::Color>(color_node.child_value());
+    pugi::xml_node tail_color_node = node.child("TailColor");
+    if (!tail_color_node.empty()) {
+        pPane->TailColor = fromString<Gdiplus::Color>(tail_color_node.child_value());
     }
 
     pPane->Pointer = "";
@@ -1222,7 +1222,7 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
 
                     //draw tail
                     if (pRoutePane->TailColor.GetAlpha() != 0) {
-                        int curElapsedTime = PathState.currentSample.attribute("elapsedTimeFromStart").as_int() - pRoutePane->Tail;
+                        int curElapsedTime = PathState.currentSample.attribute("elapsedTimeFromStart").as_int() - (int)pRoutePane->Tail;
                         std::vector<Gdiplus::PointF> points;
                         points.emplace_back(image_x, image_y);
                         pugi::xml_node sample = PathState.currentSample.previous_sibling();
@@ -1231,7 +1231,7 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
                             sample = sample.previous_sibling();
                         }
                         if (points.size() > 1) {
-                            Gdiplus::Pen *pPenTail = new Gdiplus::Pen(pRoutePane->TailColor, pRoutePane->TailWidth);
+                            Gdiplus::Pen *pPenTail = new Gdiplus::Pen(pRoutePane->TailColor, pRoutePane->PathWidth);
                             graphics.DrawLines(pPenTail, points.data(), (int)points.size());
                             delete pPenTail;
                         }
@@ -1350,10 +1350,10 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
                     // Draw path
                     if (RoutePaneState.legPoints.size() > 1) {
                         if (PathState.legPosition > 1) {
-                            if (pRoutePane->TailColorPath.GetAlpha() != 0) {
+                            if (pRoutePane->PathColor.GetAlpha() != 0) {
                                 GraphicsState state = graphics.Save();
                                 graphics.SetTransform(pTransformMatrix);
-                                Gdiplus::Pen *pPenTail = new Gdiplus::Pen(pRoutePane->TailColorPath, pRoutePane->TailWidth);
+                                Gdiplus::Pen *pPenTail = new Gdiplus::Pen(pRoutePane->PathColor, pRoutePane->PathWidth);
                                 status = graphics.DrawLines(pPenTail, RoutePaneState.legPoints.data(), PathState.legPosition);
                                 if (status != Gdiplus::Status::Ok) {
                                     Log("Status draw Leg \"%s\" points => %i, size %i, pos %i, at %d\n", 
@@ -1367,10 +1367,10 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
 
                     // Draw tail upon the path
                     if (pRoutePane->TailColor.GetAlpha() != 0) {
-                        int curElapsedTime = PathState.currentSample.attribute("elapsedTimeFromStart").as_int() - pRoutePane->Tail;
+                        int curElapsedTime = PathState.currentSample.attribute("elapsedTimeFromStart").as_int() - (int)pRoutePane->Tail;
                         std::vector<Gdiplus::PointF> points;
-                        points.emplace_back(image_x, image_y);
                         pugi::xml_node sample = PathState.currentSample.previous_sibling();
+                        points.emplace_back(sample.attribute("imageX").as_float(), sample.attribute("imageY").as_float());
                         while(!sample.empty() && curElapsedTime < sample.attribute("elapsedTimeFromStart").as_int()) {
                             points.emplace_back(sample.attribute("imageX").as_float(), sample.attribute("imageY").as_float());
                             sample = sample.previous_sibling();
@@ -1378,7 +1378,7 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
                         if (points.size() > 1) {
                             GraphicsState state = graphics.Save();
                             graphics.SetTransform(pTransformMatrix);
-                            Gdiplus::Pen *pPenTail = new Gdiplus::Pen(pRoutePane->TailColor, pRoutePane->TailWidth);
+                            Gdiplus::Pen *pPenTail = new Gdiplus::Pen(pRoutePane->TailColor, pRoutePane->PathWidth);
                             graphics.DrawLines(pPenTail, points.data(), (int)points.size());
                             graphics.Restore(state);
                             delete pPenTail;

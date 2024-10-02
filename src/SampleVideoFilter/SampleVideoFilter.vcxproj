@@ -207,6 +207,7 @@
     </CustomBuildStep>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="source\AffineTransform.cpp" />
     <ClCompile Include="source\b64.cpp" />
     <ClCompile Include="source\f_route.cpp" />
     <ClCompile Include="source\main.cpp" />

@@ -17,6 +17,7 @@
 #include "gdiplusheaders.h"
 
 #include "pugixml.hpp"
+#include "AffineTransform.h"
 
 #define _USE_MATH_DEFINES
 #include "math.h"
@@ -681,7 +682,6 @@ public:
     Gdiplus::Matrix                *pLegMatrix;     // scaled by pane view
     Gdiplus::REAL                   scale;
     Gdiplus::Matrix                *pLegMatrixPrev; // scaled by pane view
-    Gdiplus::REAL                   scalePrev;
     int                             animationFrame;
 };
 
@@ -1269,7 +1269,6 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
                         continue;   // to the next pane
                     }
                     if (RoutePaneState.currentLap != PathState.currentLap) {
-                        RoutePaneState.scalePrev = RoutePaneState.scale;
                         RoutePaneState.scale = (H - pRoutePane->Margins * 2.0f)/PathState.vectorSize;
                         if (fabs(PathState.left) > 0.01) {
                             RoutePaneState.scale = min(RoutePaneState.scale, (W/2.0f - pRoutePane->Margins)/fabs(PathState.left));
@@ -1315,11 +1314,25 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
                         Gdiplus::REAL to[6];
                         RoutePaneState.pLegMatrixPrev->GetElements(from);
                         RoutePaneState.pLegMatrix->GetElements(to);
+            #if 1
                         for(size_t i = 0; i < 6; ++i) {
                             to[i] = from[i] + (to[i] - from[i]) * RoutePaneState.animationFrame / pRoutePane->AnimationFrames;
                         }
                         pTransformMatrix->SetElements(to[0], to[1], to[2], to[3], to[4], to[5]);
-                        scale = RoutePaneState.scalePrev + (scale - RoutePaneState.scalePrev) * RoutePaneState.animationFrame / pRoutePane->AnimationFrames;
+                        scale = std::hypot(to[0], to[1]);
+            #else
+                        AffineTransform atFrom(from[0], from[1], from[2], from[3], from[4], from[5]);
+                        AffineTransform atTo(to[0], to[1], to[2], to[3], to[4], to[5]);
+                        atTo.blend(atFrom, (double)RoutePaneState.animationFrame / pRoutePane->AnimationFrames);
+                        pTransformMatrix->SetElements(
+                            (Gdiplus::REAL)atTo.a(),
+                            (Gdiplus::REAL)atTo.b(),
+                            (Gdiplus::REAL)atTo.c(),
+                            (Gdiplus::REAL)atTo.d(),
+                            (Gdiplus::REAL)atTo.e(),
+                            (Gdiplus::REAL)atTo.f());
+                        scale = (Gdiplus::REAL)atTo.xScale();
+            #endif
                         ++RoutePaneState.animationFrame;
                     }
                     if (scale < 0.01 || scale > 100) {

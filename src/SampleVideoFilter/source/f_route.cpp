@@ -110,6 +110,7 @@ public:
     time_t          Tail;
     Gdiplus::REAL   TailWidth;
     Gdiplus::Color  TailColor;
+    Gdiplus::Color  TailColorPath;
     std::string     Pointer;        // name
     int             PointerOpaque;  // 0-100
     float           MaxScale;
@@ -397,6 +398,12 @@ BasePane* FillRoutePane(RoutePane *pPane, pugi::xml_node &node) {
         pPane->TailColor = fromString<Gdiplus::Color>(color_node.child_value());
     }
 
+    pPane->TailColor = Gdiplus::Color(0x60,0xff,0,0);
+    pugi::xml_node color_node = node.child("TailColor");
+    if (!color_node.empty()) {
+        pPane->TailColor = fromString<Gdiplus::Color>(color_node.child_value());
+    }
+
     pPane->Pointer = "";
     pugi::xml_node pointer_node = node.child("Pointer");
     if (!pointer_node.empty()) {
@@ -670,6 +677,7 @@ public:
     bool                            visible;
     int                             currentLap;
     std::vector<Gdiplus::PointF>    legPoints;
+    std::vector<Gdiplus::PointF>    legPointsPrev;
     Gdiplus::Matrix                *pLegMatrix;     // scaled by pane view
     Gdiplus::Matrix                *pLegMatrixPrev; // scaled by pane view
     int                             animationFrame;
@@ -1214,11 +1222,11 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
 
                     //draw tail
                     if (pRoutePane->TailColor.GetAlpha() != 0) {
-                        int curElapsedTime = PathState.currentSample.attribute("elapsedTimeFromStart").as_int();
+                        int curElapsedTime = PathState.currentSample.attribute("elapsedTimeFromStart").as_int() - pRoutePane->Tail;
                         std::vector<Gdiplus::PointF> points;
                         points.emplace_back(image_x, image_y);
                         pugi::xml_node sample = PathState.currentSample.previous_sibling();
-                        while(!sample.empty() && curElapsedTime - sample.attribute("elapsedTimeFromStart").as_int() < pRoutePane->Tail) {
+                        while(!sample.empty() && curElapsedTime < sample.attribute("elapsedTimeFromStart").as_int()) {
                             points.emplace_back(sample.attribute("imageX").as_float(), sample.attribute("imageY").as_float());
                             sample = sample.previous_sibling();
                         }
@@ -1283,9 +1291,11 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
                             delete RoutePaneState.pLegMatrixPrev;
                             RoutePaneState.pLegMatrixPrev = nullptr;
                         }
+                        RoutePaneState.legPointsPrev.clear();
                         RoutePaneState.animationFrame = 0;
                         if (RoutePaneState.currentLap + 1 == PathState.currentLap) {
                             RoutePaneState.pLegMatrixPrev = RoutePaneState.pLegMatrix;
+                            RoutePaneState.legPointsPrev = RoutePaneState.legPoints;
                         }
                         RoutePaneState.pLegMatrix = PathState.pLegMatrix->Clone();
                         RoutePaneState.pLegMatrix->Scale(scale, scale, Gdiplus::MatrixOrderAppend);
@@ -1337,13 +1347,13 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
                         graphics.Restore(state);
                     }
 
-                    // Draw leg points
+                    // Draw path
                     if (RoutePaneState.legPoints.size() > 1) {
                         if (PathState.legPosition > 1) {
-                            if (pRoutePane->TailColor.GetAlpha() != 0) {
+                            if (pRoutePane->TailColorPath.GetAlpha() != 0) {
                                 GraphicsState state = graphics.Save();
                                 graphics.SetTransform(pTransformMatrix);
-                                Gdiplus::Pen *pPenTail = new Gdiplus::Pen(pRoutePane->TailColor, pRoutePane->TailWidth);
+                                Gdiplus::Pen *pPenTail = new Gdiplus::Pen(pRoutePane->TailColorPath, pRoutePane->TailWidth);
                                 status = graphics.DrawLines(pPenTail, RoutePaneState.legPoints.data(), PathState.legPosition);
                                 if (status != Gdiplus::Status::Ok) {
                                     Log("Status draw Leg \"%s\" points => %i, size %i, pos %i, at %d\n", 
@@ -1354,6 +1364,27 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
                             }
                         }
                     }
+
+                    // Draw tail upon the path
+                    if (pRoutePane->TailColor.GetAlpha() != 0) {
+                        int curElapsedTime = PathState.currentSample.attribute("elapsedTimeFromStart").as_int() - pRoutePane->Tail;
+                        std::vector<Gdiplus::PointF> points;
+                        points.emplace_back(image_x, image_y);
+                        pugi::xml_node sample = PathState.currentSample.previous_sibling();
+                        while(!sample.empty() && curElapsedTime < sample.attribute("elapsedTimeFromStart").as_int()) {
+                            points.emplace_back(sample.attribute("imageX").as_float(), sample.attribute("imageY").as_float());
+                            sample = sample.previous_sibling();
+                        }
+                        if (points.size() > 1) {
+                            GraphicsState state = graphics.Save();
+                            graphics.SetTransform(pTransformMatrix);
+                            Gdiplus::Pen *pPenTail = new Gdiplus::Pen(pRoutePane->TailColor, pRoutePane->TailWidth);
+                            graphics.DrawLines(pPenTail, points.data(), (int)points.size());
+                            graphics.Restore(state);
+                            delete pPenTail;
+                        }
+                    }
+
                     delete pTransformMatrix;
                 } else if (pPane->Type == PaneType::Text) {
                     //draw leg

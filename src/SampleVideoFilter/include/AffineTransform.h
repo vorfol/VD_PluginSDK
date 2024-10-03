@@ -59,16 +59,12 @@ public:
     AffineTransform& scale(double);
     AffineTransform& scale(double sx, double sy);
     AffineTransform& scaleNonUniform(double sx, double sy); // Same as scale(sx, sy).
-    AffineTransform& rotate(double);
     AffineTransform& rotateRadians(double);
     AffineTransform& rotateFromVector(double x, double y);
     AffineTransform& translate(double tx, double ty);
     AffineTransform& shear(double sx, double sy);
     AffineTransform& flipX();
     AffineTransform& flipY();
-    AffineTransform& skew(double angleX, double angleY);
-    AffineTransform& skewX(double angle);
-    AffineTransform& skewY(double angle);
 
     // These functions get the length of an axis-aligned unit vector
     // once it has been mapped through the transform

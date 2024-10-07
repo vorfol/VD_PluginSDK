@@ -669,7 +669,7 @@ public:
         visible = false;
         currentLap = -1;
         pLegMatrix = nullptr;
-        animationFrame = 0;
+        animationFrame = -1;
     };
     ~RoutePaneState() {
         delete pLegMatrix;
@@ -1072,8 +1072,8 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
                             RoutePane* pRoutePane = (RoutePane*)pPane;
                             PathState &PathState = m_PathStates[pRoutePane->PathName];
                             do_refresh |= (PathState.lastSample != PathState.currentSample);
-                            // refrash each frame while animation in progress
-                            do_refresh |= RoutePaneState.animationFrame > 0;
+                            // refresh each frame while animation in progress
+                            do_refresh |= RoutePaneState.animationFrame >= 0;
                         }
                         break;
                     case PaneType::Text:
@@ -1278,7 +1278,7 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
                         RoutePaneState.legPointsPrev = RoutePaneState.legPoints;
                         RoutePaneState.scalePrev = RoutePaneState.scale;
                         RoutePaneState.directionPrev = RoutePaneState.direction;
-                        RoutePaneState.animationFrame = 0;
+                        RoutePaneState.animationFrame = -1;
                         if (RoutePaneState.currentLap + 1 == PathState.currentLap && RoutePaneState.pLegMatrix) {
                             RoutePaneState.legStartOnMapPrev = PathState.legPoints[0];
                             RoutePaneState.legStartOnFramePrev = RoutePaneState.legStartOnMapPrev;
@@ -1327,7 +1327,7 @@ void RouteFilter::DrawRoute(Gdiplus::Bitmap *pbmp, uint32 ms) {
                     bool delete_matrix = false;
                     Gdiplus::Matrix *pTransformMatrix = RoutePaneState.pLegMatrix;
                     Gdiplus::REAL scale = RoutePaneState.scale;
-                    if (RoutePaneState.animationFrame > 0) {
+                    if (RoutePaneState.animationFrame >= 0) {
                         delete_matrix = true;
                         pTransformMatrix = new Gdiplus::Matrix();
                         Gdiplus::REAL k = (pRoutePane->AnimationFrames - RoutePaneState.animationFrame) / (Gdiplus::REAL)pRoutePane->AnimationFrames;
